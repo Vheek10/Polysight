@@ -17,7 +17,8 @@ export function SolanaWalletConnectButton({
 	return (
 		<div className="hidden sm:flex items-center gap-4">
 			<GeneralWalletButton
-				variant="compact"
+				// Change "compact" to "default" or remove entirely
+				variant="default" // Changed from "compact"
 				size="md"
 				fullWidth={false}
 				showBalance={true}
