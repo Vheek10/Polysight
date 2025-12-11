@@ -6,7 +6,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CategoryNavigation from "./CategoryNavigation";
-import MarketCard from "./markets/MarketCard";
+import MarketCard from "./MarketCard";
 import { fetchMarkets } from "@/lib/marketData";
 import { Market } from "@/types/market"; // Import Market type
 
