@@ -1,6 +1,8 @@
 /** @format */
 
-// components/MarketHero.tsx - Updated
+// src/components/MarketHero.tsx - Fixed version
+/** @format */
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,7 +10,7 @@ import { useRouter } from "next/navigation";
 import CategoryNavigation from "./CategoryNavigation";
 import MarketCard from "./MarketCard";
 import { fetchMarkets } from "@/lib/marketData";
-import { Market } from "@/types/market"; // Import Market type
+import { Market, MarketCategory } from "@/types/market";
 
 // Lightweight type for MVP UI cards
 interface LightweightMarket {
@@ -27,43 +29,48 @@ interface LightweightMarket {
 
 // Function to transform LightweightMarket to Market
 function transformToMarket(lightMarket: LightweightMarket): Market {
+	const yesProbability = lightMarket.yesPrice;
+	const noProbability = lightMarket.noPrice;
+
 	return {
 		id: lightMarket.id,
-		slug: `market-${lightMarket.id}`, // Generate a slug
 		question: lightMarket.title,
 		description: `Market about ${lightMarket.title}`,
+		category: (lightMarket.category as MarketCategory) || "all",
+		outcomes: [
+			{
+				id: `${lightMarket.id}-yes`,
+				name: "YES",
+				probability: yesProbability,
+				currentPrice: yesProbability,
+				volume: lightMarket.volume * yesProbability,
+				color: "#10b981", // green
+			},
+			{
+				id: `${lightMarket.id}-no`,
+				name: "NO",
+				probability: noProbability,
+				currentPrice: noProbability,
+				volume: lightMarket.volume * noProbability,
+				color: "#ef4444", // red
+			},
+		],
 		volume: lightMarket.volume,
 		liquidity: lightMarket.liquidity,
-		active: true,
-		outcomePrices: [lightMarket.yesPrice, lightMarket.noPrice],
-		endsAt: lightMarket.endDate,
-		marketType: "binary",
-		outcomes: [
-			{ name: "Yes", price: lightMarket.yesPrice },
-			{ name: "No", price: lightMarket.noPrice },
-		],
+		endDate: lightMarket.endDate,
 		resolved: false,
-		category: lightMarket.category,
-		totalTrades: lightMarket.particants,
-		// Add any other required properties from Market type
-		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString(),
-		tags: lightMarket.tags,
 		creator: "0x0000000000000000000000000000000000000000",
-		resolutionSource: "",
-		resolutionValue: null,
-		fee: 0.02,
-		volume24h: lightMarket.volume * 0.1, // Estimate 10% of total volume
+		createdAt: new Date().toISOString(),
+		totalTrades: lightMarket.participants,
 	};
 }
 
 export default function MarketHero() {
 	const router = useRouter();
 	const [activeCategory, setActiveCategory] = useState("All Markets");
-	const [filteredMarkets, setFilteredMarkets] = useState<Market[]>([]); // Change to Market[]
+	const [filteredMarkets, setFilteredMarkets] = useState<Market[]>([]);
 	const [loading, setLoading] = useState(true);
 
-	// Fetch markets based on active category
 	useEffect(() => {
 		const loadMarkets = async () => {
 			setLoading(true);
@@ -81,10 +88,7 @@ export default function MarketHero() {
 				}
 
 				const lightweightMarkets = await fetchMarkets(options);
-
-				// Transform to Market type
 				const markets: Market[] = lightweightMarkets.map(transformToMarket);
-
 				setFilteredMarkets(markets);
 			} catch (error) {
 				console.error("Error loading markets:", error);
@@ -104,7 +108,6 @@ export default function MarketHero() {
 			/>
 
 			<div className="max-w-7xl mx-auto px-4 py-6">
-				{/* Header */}
 				<div className="flex items-center justify-between mb-8">
 					<div>
 						<h2 className="text-xl font-semibold">
@@ -128,10 +131,8 @@ export default function MarketHero() {
 					</button>
 				</div>
 
-				{/* Markets Grid - 4 columns */}
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
 					{loading ? (
-						// Loading skeletons for 8 cards
 						Array.from({ length: 8 }).map((_, i) => (
 							<div
 								key={i}

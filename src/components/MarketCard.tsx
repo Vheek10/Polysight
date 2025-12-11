@@ -1,14 +1,14 @@
 /** @format */
 
-// components/markets/MarketCard.tsx
+// src/components/MarketCard.tsx - Updated to match new types
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Market } from "@/types/market"; // Import the type
+import { Market } from "@/types/market";
 
 interface MarketCardProps {
-	market: Market; // Use the Market type from @/types/market
+	market: Market;
 }
 
 export default function MarketCard({ market }: MarketCardProps) {
@@ -20,12 +20,16 @@ export default function MarketCard({ market }: MarketCardProps) {
 	// Safety checks for market data
 	if (!market) return null;
 
-	// Mock values for yes/no prices since Market type doesn't have them
-	const yesPrice = 0.65; // Default mock value
-	const noPrice = 0.35; // Default mock value
+	// Get YES and NO outcomes
+	const yesOutcome = market.outcomes.find((o) => o.name === "YES");
+	const noOutcome = market.outcomes.find((o) => o.name === "NO");
+
+	const yesPrice = yesOutcome?.currentPrice || 0.5;
+	const noPrice = noOutcome?.currentPrice || 0.5;
+	const yesPercentage = Math.round((yesOutcome?.probability || 0.5) * 100);
+	const noPercentage = Math.round((noOutcome?.probability || 0.5) * 100);
 	const participants = market.totalTrades || 0;
-	const tags = ["Crypto", "Trending"]; // Mock tags
-	const change = "+5.2%"; // Mock change
+	const change = "+5.2%"; // Mock change for now
 
 	const formatVolume = (volume: number): string => {
 		if (!volume && volume !== 0) return "$0";
@@ -33,9 +37,6 @@ export default function MarketCard({ market }: MarketCardProps) {
 		if (volume >= 1000) return `$${(volume / 1000).toFixed(1)}K`;
 		return `$${volume}`;
 	};
-
-	const yesPercentage = Math.round(yesPrice * 100);
-	const noPercentage = Math.round(noPrice * 100);
 
 	// Safely get change value
 	const changeValue = change || "0%";
@@ -92,7 +93,7 @@ export default function MarketCard({ market }: MarketCardProps) {
 			<div className="p-4">
 				<div className="flex items-center justify-between mb-2">
 					<span className="text-xs font-medium text-muted-foreground">
-						{market.category || "Uncategorized"}
+						{market.category || "all"}
 					</span>
 					<span
 						className={`text-xs font-medium ${
@@ -105,7 +106,7 @@ export default function MarketCard({ market }: MarketCardProps) {
 				</div>
 
 				<h3 className="font-medium text-sm mb-3 line-clamp-2 text-card-foreground leading-tight">
-					{market.question || market.description || "Untitled Market"}
+					{market.question}
 				</h3>
 
 				{/* Probability Bars - Compact */}
