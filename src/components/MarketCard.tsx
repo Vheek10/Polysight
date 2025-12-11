@@ -1,25 +1,14 @@
 /** @format */
 
-// components/MarketCard.tsx
+// components/markets/MarketCard.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Market } from "@/types/market"; // Import the type
 
 interface MarketCardProps {
-	market: {
-		id: string;
-		title: string;
-		category: string;
-		volume: number;
-		participants: number;
-		yesPrice: number;
-		noPrice: number;
-		endDate: string;
-		liquidity: number;
-		tags: string[];
-		change: string;
-	};
+	market: Market; // Use the Market type from @/types/market
 }
 
 export default function MarketCard({ market }: MarketCardProps) {
@@ -31,6 +20,13 @@ export default function MarketCard({ market }: MarketCardProps) {
 	// Safety checks for market data
 	if (!market) return null;
 
+	// Mock values for yes/no prices since Market type doesn't have them
+	const yesPrice = 0.65; // Default mock value
+	const noPrice = 0.35; // Default mock value
+	const participants = market.totalTrades || 0;
+	const tags = ["Crypto", "Trending"]; // Mock tags
+	const change = "+5.2%"; // Mock change
+
 	const formatVolume = (volume: number): string => {
 		if (!volume && volume !== 0) return "$0";
 		if (volume >= 1000000) return `$${(volume / 1000000).toFixed(1)}M`;
@@ -38,11 +34,11 @@ export default function MarketCard({ market }: MarketCardProps) {
 		return `$${volume}`;
 	};
 
-	const yesPercentage = Math.round((market.yesPrice || 0) * 100);
-	const noPercentage = Math.round((market.noPrice || 0) * 100);
+	const yesPercentage = Math.round(yesPrice * 100);
+	const noPercentage = Math.round(noPrice * 100);
 
 	// Safely get change value
-	const changeValue = market.change || "0%";
+	const changeValue = change || "0%";
 	const isPositive = changeValue.startsWith("+");
 
 	const handleYesClick = (e: React.MouseEvent) => {
@@ -91,10 +87,10 @@ export default function MarketCard({ market }: MarketCardProps) {
 	return (
 		<div
 			onClick={handleCardClick}
-			className="group cursor-pointer bg-card border border-border rounded-lg hover:bg-accent/50 transition-colors">
-			{/* Market Content */}
-			<div className="p-5">
-				<div className="flex items-center justify-between mb-3">
+			className="cursor-pointer bg-card border border-border rounded-lg hover:bg-accent/30 transition-colors">
+			{/* Market Content - Compact */}
+			<div className="p-4">
+				<div className="flex items-center justify-between mb-2">
 					<span className="text-xs font-medium text-muted-foreground">
 						{market.category || "Uncategorized"}
 					</span>
@@ -108,12 +104,12 @@ export default function MarketCard({ market }: MarketCardProps) {
 					</span>
 				</div>
 
-				<h3 className="font-medium text-base mb-4 line-clamp-2 text-card-foreground">
-					{market.title || "Untitled Market"}
+				<h3 className="font-medium text-sm mb-3 line-clamp-2 text-card-foreground leading-tight">
+					{market.question || market.description || "Untitled Market"}
 				</h3>
 
-				{/* Probability Bars */}
-				<div className="mb-4">
+				{/* Probability Bars - Compact */}
+				<div className="mb-3">
 					<div className="flex justify-between text-xs mb-1">
 						<span className="text-green-600 dark:text-green-400 font-medium">
 							YES {yesPercentage}%
@@ -122,7 +118,7 @@ export default function MarketCard({ market }: MarketCardProps) {
 							NO {noPercentage}%
 						</span>
 					</div>
-					<div className="h-1.5 bg-muted rounded-full overflow-hidden">
+					<div className="h-1 bg-muted rounded-full overflow-hidden">
 						<div
 							className="h-full bg-green-500"
 							style={{ width: `${yesPercentage}%` }}
@@ -130,18 +126,18 @@ export default function MarketCard({ market }: MarketCardProps) {
 					</div>
 				</div>
 
-				{/* Stats */}
-				<div className="grid grid-cols-2 gap-4 text-xs mb-4">
+				{/* Stats - Compact */}
+				<div className="grid grid-cols-2 gap-3 text-xs mb-3">
 					<div>
 						<p className="text-muted-foreground">Volume</p>
 						<p className="font-medium text-card-foreground">
-							{formatVolume(market.volume)}
+							{formatVolume(market.volume || 0)}
 						</p>
 					</div>
 					<div>
 						<p className="text-muted-foreground">Traders</p>
 						<p className="font-medium text-card-foreground">
-							{(market.participants || 0).toLocaleString()}
+							{participants.toLocaleString()}
 						</p>
 					</div>
 				</div>
@@ -149,93 +145,77 @@ export default function MarketCard({ market }: MarketCardProps) {
 				{/* Trade Mode UI */}
 				{isTradeMode ? (
 					<div
-						className="space-y-3"
+						className="space-y-2"
 						onClick={(e) => e.stopPropagation()}>
 						{/* Selected Side Display */}
 						<div
-							className={`p-2 rounded-md text-center text-sm font-medium ${
+							className={`p-1.5 rounded text-center text-xs font-medium ${
 								selectedSide === "yes"
 									? "bg-green-500/10 text-green-600 dark:text-green-400"
 									: "bg-red-500/10 text-red-600 dark:text-red-400"
 							}`}>
-							You're buying {selectedSide?.toUpperCase()} shares
+							Buy {selectedSide?.toUpperCase()}
 						</div>
 
 						{/* Amount Input */}
-						<div className="space-y-2">
-							<label className="text-xs text-muted-foreground block">
-								Amount (USDC)
-							</label>
+						<div className="space-y-1">
 							<div className="relative">
 								<input
 									type="number"
 									value={amount}
 									onChange={(e) => setAmount(e.target.value)}
-									placeholder="0.00"
-									className="w-full bg-background border border-input rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+									placeholder="Amount"
+									className="w-full bg-background border border-input rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
 									min="0"
 									step="0.01"
 								/>
-								<div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+								<div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
 									USDC
 								</div>
 							</div>
 						</div>
 
-						{/* Cost Calculation */}
-						{amount && parseFloat(amount) > 0 && selectedSide && (
-							<div className="text-xs text-muted-foreground">
-								Cost: $
-								{(
-									parseFloat(amount) *
-									(selectedSide === "yes"
-										? market.yesPrice || 0
-										: market.noPrice || 0)
-								).toFixed(2)}
-							</div>
-						)}
-
 						{/* Action Buttons */}
-						<div className="flex gap-2">
+						<div className="flex gap-1.5">
 							<button
 								onClick={handleCancelTrade}
-								className="flex-1 py-2 text-xs font-medium rounded-md border border-input hover:bg-accent transition-colors">
+								className="flex-1 py-1.5 text-xs font-medium rounded border border-input hover:bg-accent transition-colors">
 								Cancel
 							</button>
 							<button
 								onClick={handleTradeSubmit}
 								disabled={!amount || parseFloat(amount) <= 0}
-								className={`flex-1 py-2 text-xs font-medium rounded-md transition-colors ${
+								className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${
 									!amount || parseFloat(amount) <= 0
 										? "bg-gray-300 dark:bg-gray-700 text-gray-500 cursor-not-allowed"
 										: selectedSide === "yes"
 										? "bg-green-500 hover:bg-green-600 text-white"
 										: "bg-red-500 hover:bg-red-600 text-white"
 								}`}>
-								Buy {selectedSide?.toUpperCase()}
+								Buy
 							</button>
 						</div>
 					</div>
 				) : (
-					/* Normal Yes/No Buttons */
-					<div className="flex gap-2">
+					/* Normal Yes/No Buttons - Compact */
+					<div className="flex gap-1.5">
 						{/* YES Button */}
 						<button
 							onClick={handleYesClick}
-							className="flex-1 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 text-sm font-medium rounded-md transition-colors">
+							className="flex-1 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 text-xs font-medium rounded transition-colors">
 							<div className="flex flex-col items-center">
-								<span className="font-bold">{yesPercentage}%</span>
-								<span className="text-xs opacity-90">YES</span>
+								<span className="font-bold text-sm">{yesPercentage}%</span>
+								<span className="text-[10px] opacity-90">YES</span>
 							</div>
 						</button>
 
 						{/* NO Button */}
 						<button
 							onClick={handleNoClick}
-							className="flex-1 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium rounded-md transition-colors">
+							className="flex-1 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium rounded transition-colors">
 							<div className="flex flex-col items-center">
-								<span className="font-bold">{noPercentage}%</span>
-								<span className="text-xs opacity-90">NO</span>
+								<span className="font-bold text-sm">{noPercentage}%</span>
+								<span className="text-[10px] opacity-90">NO</span>
 							</div>
 						</button>
 					</div>

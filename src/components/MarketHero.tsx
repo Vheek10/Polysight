@@ -32,13 +32,6 @@ export default function MarketHero() {
 	);
 	const [loading, setLoading] = useState(true);
 
-	const [marketStats, setMarketStats] = useState({
-		totalVolume: 0,
-		activeMarkets: 0,
-		totalParticipants: 0,
-		totalMarkets: 0,
-	});
-
 	// Fetch markets based on active category
 	useEffect(() => {
 		const loadMarkets = async () => {
@@ -58,24 +51,6 @@ export default function MarketHero() {
 
 				const markets = await fetchMarkets(options);
 				setFilteredMarkets(markets);
-
-				// Calculate stats
-				const totalVolume = markets.reduce(
-					(sum: number, m: LightweightMarket) => sum + m.volume,
-					0,
-				);
-
-				const totalParticipants = markets.reduce(
-					(sum: number, m: LightweightMarket) => sum + m.participants,
-					0,
-				);
-
-				setMarketStats({
-					totalVolume,
-					activeMarkets: markets.length,
-					totalParticipants,
-					totalMarkets: markets.length,
-				});
 			} catch (error) {
 				console.error("Error loading markets:", error);
 			} finally {
@@ -94,45 +69,64 @@ export default function MarketHero() {
 			/>
 
 			<div className="max-w-7xl mx-auto px-4 py-6">
-				{/* Market Stats */}
-				{!loading && (
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-						<div className="bg-card border border-border rounded-lg p-4">
-							<p className="text-sm text-muted-foreground">Total Volume</p>
-							<p className="text-2xl font-bold">
-								${(marketStats.totalVolume / 1000).toFixed(1)}k
+				{/* Header */}
+				<div className="flex items-center justify-between mb-8">
+					<div>
+						<h2 className="text-xl font-semibold">
+							{activeCategory === "All Markets"
+								? "All Markets"
+								: activeCategory}
+							<span className="text-muted-foreground text-sm ml-2">
+								({loading ? "..." : filteredMarkets.length} markets)
+							</span>
+						</h2>
+						{!loading && filteredMarkets.length > 0 && (
+							<p className="text-sm text-muted-foreground mt-1">
+								Trade on real-world events with ultra-low fees
 							</p>
-						</div>
-
-						<div className="bg-card border border-border rounded-lg p-4">
-							<p className="text-sm text-muted-foreground">Active Markets</p>
-							<p className="text-2xl font-bold">{marketStats.activeMarkets}</p>
-						</div>
-
-						<div className="bg-card border border-border rounded-lg p-4">
-							<p className="text-sm text-muted-foreground">Participants</p>
-							<p className="text-2xl font-bold">
-								{marketStats.totalParticipants}
-							</p>
-						</div>
-
-						<div className="bg-card border border-border rounded-lg p-4">
-							<p className="text-sm text-muted-foreground">Total Markets</p>
-							<p className="text-2xl font-bold">{marketStats.totalMarkets}</p>
-						</div>
+						)}
 					</div>
-				)}
+					<button
+						onClick={() => router.push("/create")}
+						className="px-4 py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors">
+						Create Market
+					</button>
+				</div>
 
-				{/* Markets Grid */}
-				<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				{/* Markets Grid - 4 columns */}
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
 					{loading ? (
-						<p className="text-center text-muted-foreground col-span-full">
-							Loading markets...
-						</p>
+						// Loading skeletons for 8 cards
+						Array.from({ length: 8 }).map((_, i) => (
+							<div
+								key={i}
+								className="bg-card border border-border rounded-lg animate-pulse">
+								<div className="p-5">
+									<div className="flex items-center justify-between mb-4">
+										<div className="h-4 bg-muted rounded w-1/3" />
+										<div className="h-4 bg-muted rounded w-1/4" />
+									</div>
+									<div className="h-5 bg-muted rounded mb-4" />
+									<div className="h-5 bg-muted rounded mb-4" />
+									<div className="h-8 bg-muted rounded mb-4" />
+									<div className="h-9 bg-muted rounded" />
+								</div>
+							</div>
+						))
 					) : filteredMarkets.length === 0 ? (
-						<p className="text-center text-muted-foreground col-span-full">
-							No markets found.
-						</p>
+						<div className="col-span-full text-center py-16">
+							<h3 className="text-lg font-medium mb-3">No markets found</h3>
+							<p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
+								{activeCategory === "All Markets"
+									? "No markets available at the moment."
+									: `No markets found in "${activeCategory}". Try selecting a different category.`}
+							</p>
+							<button
+								onClick={() => setActiveCategory("All Markets")}
+								className="px-4 py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors">
+								View All Markets
+							</button>
+						</div>
 					) : (
 						filteredMarkets.map((market) => (
 							<MarketCard
