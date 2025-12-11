@@ -34,7 +34,8 @@ export default function CategoryNavigation({
 	setActiveCategory,
 }: CategoryNavigationProps) {
 	return (
-		<div className="sticky top-0 z-40 bg-background border-b border-border">
+		<div className="sticky top-0 z-40 bg-background">
+			{/* Removed: border-b border-border */}
 			<div className="max-w-7xl mx-auto px-4">
 				<div className="py-3">
 					{/* Categories */}
@@ -45,7 +46,7 @@ export default function CategoryNavigation({
 								onClick={() => setActiveCategory(category)}
 								className={`text-sm whitespace-nowrap transition-colors pb-2 border-b-2 ${
 									activeCategory === category
-										? "text-foreground border-primary"
+										? "text-foreground border-current"
 										: "text-muted-foreground border-transparent hover:text-foreground"
 								}`}>
 								{category}

@@ -8,12 +8,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, Trash2, Calendar, DollarSign, Clock } from "lucide-react";
-import { MarketCategory } from "@/types/market";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Label } from "@/components/ui/Label";
 import { Card } from "@/components/ui/Card";
+
+// Define the type locally to match your schema
+type MarketCategory =
+	| "politics"
+	| "sports"
+	| "crypto"
+	| "technology"
+	| "finance";
 
 const marketSchema = z.object({
 	question: z.string().min(10, "Question must be at least 10 characters"),
