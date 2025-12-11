@@ -64,7 +64,6 @@ export default function Navbar() {
 	return (
 		<>
 			<nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
-				{/* Removed: border-b from this line */}
 				<div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 					<div className="flex h-16 items-center justify-between">
 						{/* Logo on Left */}
@@ -88,19 +87,19 @@ export default function Navbar() {
 							</Link>
 						</div>
 
-						{/* Search Bar - Show only on large screens and up */}
-						<div className="hidden lg:flex flex-1 max-w-md mx-8">
-							<div className="relative w-full group">
+						{/* Search Bar - Centered on large screens */}
+						<div className="hidden lg:flex absolute left-1/2 transform -translate-x-1/2">
+							<div className="relative w-96 group">
 								<Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-all duration-500 group-hover:text-primary group-hover:scale-110" />
 								<input
 									type="search"
-									placeholder="Search Polysight"
-									className="w-full rounded-lg border border-input/50 bg-card py-2.5 pl-11 pr-5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/30 font-medium cursor-text"
+									placeholder="Search markets, events, or topics..."
+									className="w-full rounded-lg border border-input/50 bg-card py-2.5 pl-11 pr-5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/30 font-medium cursor-text shadow-sm hover:shadow-md transition-shadow duration-300"
 								/>
 							</div>
 						</div>
 
-						{/* Portfolio Display container with auto margin to push to right */}
+						{/* Portfolio Display container - Pushed to right */}
 						<div className="hidden md:block ml-auto">
 							{isSignedIn && <PortfolioDisplay onDeposit={handleDeposit} />}
 						</div>
@@ -136,6 +135,18 @@ export default function Navbar() {
 								onSignOut={handleSignOut}
 								onCopyWallet={handleCopyWallet}
 								walletCopied={walletCopied}
+							/>
+						</div>
+					</div>
+
+					{/* Mobile Search Bar - Shown below navbar on small screens */}
+					<div className="lg:hidden py-3 border-t border-border/50 mt-2">
+						<div className="relative group">
+							<Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-all duration-500 group-hover:text-primary" />
+							<input
+								type="search"
+								placeholder="Search markets, events, or topics..."
+								className="w-full rounded-lg border border-input/50 bg-card py-2.5 pl-11 pr-5 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/30 font-medium cursor-text"
 							/>
 						</div>
 					</div>
