@@ -5,26 +5,45 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Market } from "@/types/market";
 
-export default function MarketCard({ market }: { market: Market }) {
+interface MarketCardProps {
+	market: {
+		id: string;
+		title: string;
+		category: string;
+		volume: number;
+		participants: number;
+		yesPrice: number;
+		noPrice: number;
+		endDate: string;
+		liquidity: number;
+		tags: string[];
+		change: string;
+	};
+}
+
+export default function MarketCard({ market }: MarketCardProps) {
 	const router = useRouter();
-
 	const [selectedSide, setSelectedSide] = useState<"yes" | "no" | null>(null);
-	const [amount, setAmount] = useState("");
+	const [amount, setAmount] = useState<string>("");
 	const [isTradeMode, setIsTradeMode] = useState(false);
 
-	const yesOutcome = market.outcomes[0];
-	const noOutcome = market.outcomes[1];
+	// Safety checks for market data
+	if (!market) return null;
 
-	const yesPercentage = Math.round((yesOutcome?.probability ?? 0) * 100);
-	const noPercentage = Math.round((noOutcome?.probability ?? 0) * 100);
-
-	const formatVolume = (volume: number) => {
-		if (volume >= 1000000) return `$${(volume / 1_000_000).toFixed(1)}M`;
+	const formatVolume = (volume: number): string => {
+		if (!volume && volume !== 0) return "$0";
+		if (volume >= 1000000) return `$${(volume / 1000000).toFixed(1)}M`;
 		if (volume >= 1000) return `$${(volume / 1000).toFixed(1)}K`;
 		return `$${volume}`;
 	};
+
+	const yesPercentage = Math.round((market.yesPrice || 0) * 100);
+	const noPercentage = Math.round((market.noPrice || 0) * 100);
+
+	// Safely get change value
+	const changeValue = market.change || "0%";
+	const isPositive = changeValue.startsWith("+");
 
 	const handleYesClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -42,16 +61,17 @@ export default function MarketCard({ market }: { market: Market }) {
 		e.stopPropagation();
 		if (!selectedSide || !amount || parseFloat(amount) <= 0) return;
 
-		// Placeholder trade logic
+		// Submit trade logic here
 		console.log(
 			`Trade: ${selectedSide.toUpperCase()} $${amount} on market ${market.id}`,
 		);
 
-		// Reset
+		// Reset trade mode
 		setIsTradeMode(false);
 		setSelectedSide(null);
 		setAmount("");
 
+		// Navigate to market page or show success message
 		router.push(`/market/${market.id}?side=${selectedSide}&amount=${amount}`);
 	};
 
@@ -68,28 +88,28 @@ export default function MarketCard({ market }: { market: Market }) {
 		}
 	};
 
-	const selectedPrice =
-		selectedSide === "yes" ? yesOutcome?.probability : noOutcome?.probability;
-
 	return (
 		<div
 			onClick={handleCardClick}
 			className="group cursor-pointer bg-card border border-border rounded-lg hover:bg-accent/50 transition-colors">
+			{/* Market Content */}
 			<div className="p-5">
-				{/* Header */}
 				<div className="flex items-center justify-between mb-3">
 					<span className="text-xs font-medium text-muted-foreground">
-						{market.category}
+						{market.category || "Uncategorized"}
 					</span>
-
-					<span className="text-xs font-medium text-blue-500">
-						{market.resolved ? "Resolved" : "Active"}
+					<span
+						className={`text-xs font-medium ${
+							isPositive
+								? "text-green-600 dark:text-green-400"
+								: "text-red-600 dark:text-red-400"
+						}`}>
+						{changeValue}
 					</span>
 				</div>
 
-				{/* Question */}
 				<h3 className="font-medium text-base mb-4 line-clamp-2 text-card-foreground">
-					{market.question}
+					{market.title || "Untitled Market"}
 				</h3>
 
 				{/* Probability Bars */}
@@ -102,7 +122,6 @@ export default function MarketCard({ market }: { market: Market }) {
 							NO {noPercentage}%
 						</span>
 					</div>
-
 					<div className="h-1.5 bg-muted rounded-full overflow-hidden">
 						<div
 							className="h-full bg-green-500"
@@ -120,19 +139,19 @@ export default function MarketCard({ market }: { market: Market }) {
 						</p>
 					</div>
 					<div>
-						<p className="text-muted-foreground">Trades</p>
+						<p className="text-muted-foreground">Traders</p>
 						<p className="font-medium text-card-foreground">
-							{market.totalTrades.toLocaleString()}
+							{(market.participants || 0).toLocaleString()}
 						</p>
 					</div>
 				</div>
 
-				{/* Trade Mode */}
+				{/* Trade Mode UI */}
 				{isTradeMode ? (
 					<div
-						onClick={(e) => e.stopPropagation()}
-						className="space-y-3">
-						{/* Side badge */}
+						className="space-y-3"
+						onClick={(e) => e.stopPropagation()}>
+						{/* Selected Side Display */}
 						<div
 							className={`p-2 rounded-md text-center text-sm font-medium ${
 								selectedSide === "yes"
@@ -142,12 +161,11 @@ export default function MarketCard({ market }: { market: Market }) {
 							You're buying {selectedSide?.toUpperCase()} shares
 						</div>
 
-						{/* Amount input */}
+						{/* Amount Input */}
 						<div className="space-y-2">
 							<label className="text-xs text-muted-foreground block">
 								Amount (USDC)
 							</label>
-
 							<div className="relative">
 								<input
 									type="number"
@@ -164,21 +182,26 @@ export default function MarketCard({ market }: { market: Market }) {
 							</div>
 						</div>
 
-						{/* Cost */}
-						{amount && parseFloat(amount) > 0 && (
+						{/* Cost Calculation */}
+						{amount && parseFloat(amount) > 0 && selectedSide && (
 							<div className="text-xs text-muted-foreground">
-								Cost: ${(parseFloat(amount) * (selectedPrice ?? 0)).toFixed(2)}
+								Cost: $
+								{(
+									parseFloat(amount) *
+									(selectedSide === "yes"
+										? market.yesPrice || 0
+										: market.noPrice || 0)
+								).toFixed(2)}
 							</div>
 						)}
 
-						{/* Buttons */}
+						{/* Action Buttons */}
 						<div className="flex gap-2">
 							<button
 								onClick={handleCancelTrade}
 								className="flex-1 py-2 text-xs font-medium rounded-md border border-input hover:bg-accent transition-colors">
 								Cancel
 							</button>
-
 							<button
 								onClick={handleTradeSubmit}
 								disabled={!amount || parseFloat(amount) <= 0}
@@ -194,8 +217,9 @@ export default function MarketCard({ market }: { market: Market }) {
 						</div>
 					</div>
 				) : (
-					/* Normal Yes/No buttons */
+					/* Normal Yes/No Buttons */
 					<div className="flex gap-2">
+						{/* YES Button */}
 						<button
 							onClick={handleYesClick}
 							className="flex-1 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 text-sm font-medium rounded-md transition-colors">
@@ -205,6 +229,7 @@ export default function MarketCard({ market }: { market: Market }) {
 							</div>
 						</button>
 
+						{/* NO Button */}
 						<button
 							onClick={handleNoClick}
 							className="flex-1 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium rounded-md transition-colors">
