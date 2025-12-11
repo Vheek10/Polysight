@@ -1,13 +1,14 @@
 /** @format */
 
-// components/MarketHero.tsx
+// components/MarketHero.tsx - Updated
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import CategoryNavigation from "./CategoryNavigation";
-import MarketCard from "./MarketCard";
+import MarketCard from "./markets/MarketCard";
 import { fetchMarkets } from "@/lib/marketData";
+import { Market } from "@/types/market"; // Import Market type
 
 // Lightweight type for MVP UI cards
 interface LightweightMarket {
@@ -24,12 +25,42 @@ interface LightweightMarket {
 	change: string;
 }
 
+// Function to transform LightweightMarket to Market
+function transformToMarket(lightMarket: LightweightMarket): Market {
+	return {
+		id: lightMarket.id,
+		slug: `market-${lightMarket.id}`, // Generate a slug
+		question: lightMarket.title,
+		description: `Market about ${lightMarket.title}`,
+		volume: lightMarket.volume,
+		liquidity: lightMarket.liquidity,
+		active: true,
+		outcomePrices: [lightMarket.yesPrice, lightMarket.noPrice],
+		endsAt: lightMarket.endDate,
+		marketType: "binary",
+		outcomes: [
+			{ name: "Yes", price: lightMarket.yesPrice },
+			{ name: "No", price: lightMarket.noPrice },
+		],
+		resolved: false,
+		category: lightMarket.category,
+		totalTrades: lightMarket.particants,
+		// Add any other required properties from Market type
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+		tags: lightMarket.tags,
+		creator: "0x0000000000000000000000000000000000000000",
+		resolutionSource: "",
+		resolutionValue: null,
+		fee: 0.02,
+		volume24h: lightMarket.volume * 0.1, // Estimate 10% of total volume
+	};
+}
+
 export default function MarketHero() {
 	const router = useRouter();
 	const [activeCategory, setActiveCategory] = useState("All Markets");
-	const [filteredMarkets, setFilteredMarkets] = useState<LightweightMarket[]>(
-		[],
-	);
+	const [filteredMarkets, setFilteredMarkets] = useState<Market[]>([]); // Change to Market[]
 	const [loading, setLoading] = useState(true);
 
 	// Fetch markets based on active category
@@ -49,7 +80,11 @@ export default function MarketHero() {
 					options.category = activeCategory;
 				}
 
-				const markets = await fetchMarkets(options);
+				const lightweightMarkets = await fetchMarkets(options);
+
+				// Transform to Market type
+				const markets: Market[] = lightweightMarkets.map(transformToMarket);
+
 				setFilteredMarkets(markets);
 			} catch (error) {
 				console.error("Error loading markets:", error);
