@@ -110,57 +110,55 @@ function NavDropdown({
 		<div
 			className="relative"
 			ref={dropdownRef}>
-			{/* Button - 3 dash icon when not signed in, User icon when signed in */}
+			{/* Button - Always use 3 dash icon for consistent styling */}
 			<button
 				onClick={() => setDropdownOpen(!dropdownOpen)}
 				className={cn(
 					"flex h-10 w-10 items-center justify-center rounded-lg border transition-all duration-300 hover:shadow-md cursor-pointer",
-					"active:scale-95",
-					isSignedIn && connected
-						? "bg-primary/10 border-primary/20 hover:bg-primary/20 hover:border-primary/30"
-						: "border-input/50 bg-card hover:bg-accent/50 hover:border-input",
+					"active:scale-95 border-input/50 bg-card hover:bg-accent/50 hover:border-input",
 					dropdownOpen && "bg-accent/50",
 				)}>
-				{isSignedIn && connected ? (
-					// User icon when signed in
-					<div className="relative">
-						<User className="h-5 w-5 text-primary" />
-						{/* Online indicator */}
-						<div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-green-500 animate-pulse ring-1 ring-white" />
-					</div>
-				) : (
-					// 3 dash hamburger icon when not signed in
-					<div className="flex flex-col gap-1">
-						<div
-							className={cn(
-								"h-0.5 w-4 bg-current rounded-full transition-all duration-300",
-								dropdownOpen && "rotate-45 translate-y-1.5",
-							)}
-						/>
-						<div
-							className={cn(
-								"h-0.5 w-4 bg-current rounded-full transition-all duration-300",
-								dropdownOpen && "opacity-0",
-							)}
-						/>
-						<div
-							className={cn(
-								"h-0.5 w-4 bg-current rounded-full transition-all duration-300",
-								dropdownOpen && "-rotate-45 -translate-y-1.5",
-							)}
-						/>
-					</div>
-				)}
+				{/* Always show 3 dash hamburger icon for consistency */}
+				<div className="flex flex-col gap-1">
+					<div
+						className={cn(
+							"h-0.5 w-4 bg-current rounded-full transition-all duration-300",
+							dropdownOpen && "rotate-45 translate-y-1.5",
+						)}
+					/>
+					<div
+						className={cn(
+							"h-0.5 w-4 bg-current rounded-full transition-all duration-300",
+							dropdownOpen && "opacity-0",
+						)}
+					/>
+					<div
+						className={cn(
+							"h-0.5 w-4 bg-current rounded-full transition-all duration-300",
+							dropdownOpen && "-rotate-45 -translate-y-1.5",
+						)}
+					/>
+				</div>
 			</button>
 
 			{dropdownOpen && (
 				<div className="absolute right-0 mt-2 w-80 animate-fade-in rounded-lg border border-border bg-card shadow-xl z-50 overflow-hidden">
 					<div className="p-4">
+						{/* Theme Toggle - ALWAYS AT THE TOP */}
+						<div className="mb-4">
+							<div className="flex items-center justify-between">
+								<ThemeToggle />
+							</div>
+						</div>
+
+						{/* Separator after theme toggle */}
+						<div className="h-px w-full bg-border my-4" />
+
 						{/* Wallet Address Section - Only show when signed in and connected */}
 						{isSignedIn && connected && publicKey && (
 							<>
 								<div className="mb-4">
-									{/* Address Display - Larger font and bold */}
+									{/* Address Display */}
 									<div className="flex items-center justify-between px-3 py-3 bg-accent/10 rounded-lg mb-3">
 										<div className="flex items-center gap-3">
 											<div className="relative">
@@ -183,14 +181,6 @@ function NavDropdown({
 										</button>
 									</div>
 
-									{/* Theme Toggle below address */}
-									<div className="mb-4">
-										<ThemeToggle />
-									</div>
-
-									{/* Plain color separator */}
-									<div className="h-px w-full bg-border mb-4" />
-
 									{/* Profile Links */}
 									<div className="space-y-2 mb-4">
 										{profileItems.map((item) => (
@@ -205,7 +195,7 @@ function NavDropdown({
 										))}
 									</div>
 
-									{/* Plain color separator */}
+									{/* Separator after profile */}
 									<div className="h-px w-full bg-border mb-4" />
 								</div>
 							</>
@@ -230,7 +220,7 @@ function NavDropdown({
 						{/* Log Out Button - Only show when signed in */}
 						{isSignedIn && (
 							<>
-								{/* Plain color separator */}
+								{/* Separator before logout */}
 								<div className="h-px w-full bg-border my-4" />
 								<button
 									onClick={handleLogOut}

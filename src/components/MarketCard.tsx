@@ -3,110 +3,101 @@
 // components/MarketCard.tsx
 "use client";
 
-import { Market } from "@/types/market";
-import { formatDistanceToNow } from "date-fns";
-import { TrendingUp, Clock, ChevronRight, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Card } from "@/components/ui/Card";
 
 interface MarketCardProps {
-	market: Market;
-	className?: string;
-	style?: React.CSSProperties;
+	market: {
+		id: string;
+		title: string;
+		category: string;
+		volume: number;
+		participants: number;
+		yesPrice: number;
+		noPrice: number;
+		endDate: string;
+		liquidity: number;
+		tags: string[];
+		change: string;
+	};
 }
 
-export default function MarketCard({
-	market,
-	className,
-	style,
-}: MarketCardProps) {
+export default function MarketCard({ market }: MarketCardProps) {
 	const router = useRouter();
-	const timeRemaining = formatDistanceToNow(market.endDate, {
-		addSuffix: true,
-	});
 
-	const handleViewMarket = () => {
-		router.push(`/market/${market.id}`);
+	const formatVolume = (volume: number) => {
+		if (volume >= 1000000) return `$${(volume / 1000000).toFixed(1)}M`;
+		if (volume >= 1000) return `$${(volume / 1000).toFixed(1)}K`;
+		return `$${volume}`;
 	};
 
 	return (
-		<Card
-			className={cn(
-				"group cursor-pointer transition-all duration-300 hover:border-primary hover:shadow-lg",
-				className,
-			)}
-			style={style}
-			onClick={handleViewMarket}>
-			{/* Header */}
-			<div className="mb-4 flex items-center justify-between">
-				<span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
-					{market.category}
-				</span>
-				<div className="flex items-center gap-1 text-sm text-muted-foreground">
-					<Clock className="h-3 w-3" />
-					{timeRemaining}
+		<div
+			onClick={() => router.push(`/market/${market.id}`)}
+			className="group cursor-pointer bg-card border border-border rounded-lg hover:bg-accent transition-colors">
+			{/* Market Content */}
+			<div className="p-5">
+				<div className="flex items-center justify-between mb-3">
+					<span className="text-xs font-medium text-muted-foreground">
+						{market.category}
+					</span>
+					<span
+						className={`text-xs font-medium ${
+							market.change.startsWith("+")
+								? "text-green-600 dark:text-green-400"
+								: "text-red-600 dark:text-red-400"
+						}`}>
+						{market.change}
+					</span>
 				</div>
-			</div>
 
-			{/* Question */}
-			<h3 className="mb-3 line-clamp-2 text-lg font-semibold tracking-tight text-card-foreground group-hover:text-primary transition-colors">
-				{market.question}
-			</h3>
-			<p className="mb-6 line-clamp-2 text-sm text-muted-foreground">
-				{market.description}
-			</p>
+				<h3 className="font-medium text-base mb-4 line-clamp-2 text-card-foreground">
+					{market.title}
+				</h3>
 
-			{/* Outcomes */}
-			<div className="mb-6 space-y-4">
-				{market.outcomes.map((outcome) => (
-					<div
-						key={outcome.id}
-						className="space-y-2">
-						<div className="flex justify-between text-sm">
-							<span className="font-medium text-card-foreground">
-								{outcome.name}
-							</span>
-							<span className="font-bold text-card-foreground">
-								{outcome.probability}%
-							</span>
-						</div>
-						<div className="h-2 overflow-hidden rounded-full bg-muted">
-							<div
-								className={cn(
-									"h-full rounded-full bg-gradient-to-r transition-all duration-500",
-									outcome.color,
-								)}
-								style={{ width: `${outcome.probability}%` }}
-							/>
-						</div>
-						<div className="flex justify-between text-xs text-muted-foreground">
-							<span>${outcome.currentPrice.toFixed(2)}</span>
-							<span>${outcome.volume.toLocaleString()}</span>
-						</div>
-					</div>
-				))}
-			</div>
-
-			{/* Stats */}
-			<div className="flex items-center justify-between border-t pt-4">
-				<div className="flex items-center gap-4 text-sm text-muted-foreground">
-					<div className="flex items-center gap-1">
-						<TrendingUp className="h-3 w-3" />
-						<span className="font-medium">
-							${market.volume.toLocaleString()}
+				{/* Probability Bars */}
+				<div className="mb-4">
+					<div className="flex justify-between text-xs mb-1">
+						<span className="text-green-600 dark:text-green-400">
+							YES {Math.round(market.yesPrice * 100)}%
+						</span>
+						<span className="text-red-600 dark:text-red-400">
+							NO {Math.round(market.noPrice * 100)}%
 						</span>
 					</div>
-					<div className="flex items-center gap-1">
-						<Users className="h-3 w-3" />
-						<span className="font-medium">{market.totalTrades}</span>
+					<div className="h-1.5 bg-muted rounded-full overflow-hidden">
+						<div
+							className="h-full bg-green-500"
+							style={{ width: `${market.yesPrice * 100}%` }}
+						/>
 					</div>
 				</div>
-				<div className="flex items-center gap-1 text-primary transition-transform group-hover:translate-x-1">
-					<span className="text-sm font-medium">Trade</span>
-					<ChevronRight className="h-4 w-4" />
+
+				{/* Stats */}
+				<div className="grid grid-cols-2 gap-4 text-xs mb-4">
+					<div>
+						<p className="text-muted-foreground">Volume</p>
+						<p className="font-medium text-card-foreground">
+							{formatVolume(market.volume)}
+						</p>
+					</div>
+					<div>
+						<p className="text-muted-foreground">Traders</p>
+						<p className="font-medium text-card-foreground">
+							{market.participants.toLocaleString()}
+						</p>
+					</div>
 				</div>
+
+				{/* Action Button */}
+				<button
+					onClick={(e) => {
+						e.stopPropagation();
+						router.push(`/market/${market.id}`);
+					}}
+					className="w-full px-4 py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors">
+					Trade Now
+				</button>
 			</div>
-		</Card>
+		</div>
 	);
 }
