@@ -24,10 +24,25 @@ interface MarketCardProps {
 export default function MarketCard({ market }: MarketCardProps) {
 	const router = useRouter();
 
-	const formatVolume = (volume: number) => {
+	const formatVolume = (volume: number): string => {
 		if (volume >= 1000000) return `$${(volume / 1000000).toFixed(1)}M`;
 		if (volume >= 1000) return `$${(volume / 1000).toFixed(1)}K`;
 		return `$${volume}`;
+	};
+
+	const yesPercentage = Math.round(market.yesPrice * 100);
+	const noPercentage = Math.round(market.noPrice * 100);
+
+	const handleYesClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		// Navigate to trade page with "yes" option selected
+		router.push(`/market/${market.id}?side=yes`);
+	};
+
+	const handleNoClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		// Navigate to trade page with "no" option selected
+		router.push(`/market/${market.id}?side=no`);
 	};
 
 	return (
@@ -57,17 +72,17 @@ export default function MarketCard({ market }: MarketCardProps) {
 				{/* Probability Bars */}
 				<div className="mb-4">
 					<div className="flex justify-between text-xs mb-1">
-						<span className="text-green-600 dark:text-green-400">
-							YES {Math.round(market.yesPrice * 100)}%
+						<span className="text-green-600 dark:text-green-400 font-medium">
+							YES {yesPercentage}%
 						</span>
-						<span className="text-red-600 dark:text-red-400">
-							NO {Math.round(market.noPrice * 100)}%
+						<span className="text-red-600 dark:text-red-400 font-medium">
+							NO {noPercentage}%
 						</span>
 					</div>
 					<div className="h-1.5 bg-muted rounded-full overflow-hidden">
 						<div
 							className="h-full bg-green-500"
-							style={{ width: `${market.yesPrice * 100}%` }}
+							style={{ width: `${yesPercentage}%` }}
 						/>
 					</div>
 				</div>
@@ -88,15 +103,28 @@ export default function MarketCard({ market }: MarketCardProps) {
 					</div>
 				</div>
 
-				{/* Action Button */}
-				<button
-					onClick={(e) => {
-						e.stopPropagation();
-						router.push(`/market/${market.id}`);
-					}}
-					className="w-full px-4 py-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors">
-					Trade Now
-				</button>
+				{/* Yes/No Action Buttons */}
+				<div className="grid grid-cols-2 gap-3">
+					{/* YES Button */}
+					<button
+						onClick={handleYesClick}
+						className="px-3 py-2.5 bg-green-500/10 text-green-600 dark:text-green-400 text-sm font-medium rounded-md hover:bg-green-500/20 transition-colors border border-green-500/20">
+						<div className="flex flex-col items-center">
+							<span className="font-bold text-lg">{yesPercentage}%</span>
+							<span className="text-xs mt-0.5">YES</span>
+						</div>
+					</button>
+
+					{/* NO Button */}
+					<button
+						onClick={handleNoClick}
+						className="px-3 py-2.5 bg-red-500/10 text-red-600 dark:text-red-400 text-sm font-medium rounded-md hover:bg-red-500/20 transition-colors border border-red-500/20">
+						<div className="flex flex-col items-center">
+							<span className="font-bold text-lg">{noPercentage}%</span>
+							<span className="text-xs mt-0.5">NO</span>
+						</div>
+					</button>
+				</div>
 			</div>
 		</div>
 	);

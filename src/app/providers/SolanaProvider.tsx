@@ -11,7 +11,6 @@ import {
 import {
 	PhantomWalletAdapter,
 	SolflareWalletAdapter,
-	GlowWalletAdapter,
 	CoinbaseWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 
@@ -25,12 +24,10 @@ export default function SolanaProvider({ children }: { children: ReactNode }) {
 
 	const endpoint = useMemo(() => clusterApiUrl(network), [network]);
 
-	// FIXED WALLET LIST
 	const wallets = useMemo(
 		() => [
 			new PhantomWalletAdapter(),
 			new SolflareWalletAdapter(),
-			new GlowWalletAdapter(),
 			new CoinbaseWalletAdapter(),
 			new BackpackWalletAdapter(),
 		],
