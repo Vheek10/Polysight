@@ -14,8 +14,8 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Label } from "@/components/ui/Label";
 import { Card } from "@/components/ui/Card";
 
-// Define the type locally to match your schema
-type MarketCategory =
+// Create a specific type for form categories (without "all")
+type FormMarketCategory =
 	| "politics"
 	| "sports"
 	| "crypto"
@@ -39,7 +39,7 @@ const marketSchema = z.object({
 
 type MarketFormData = z.infer<typeof marketSchema>;
 
-const categories: { value: MarketCategory; label: string }[] = [
+const categories: { value: FormMarketCategory; label: string }[] = [
 	{ value: "politics", label: "Politics" },
 	{ value: "sports", label: "Sports" },
 	{ value: "crypto", label: "Crypto" },
