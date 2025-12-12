@@ -2,7 +2,9 @@
 
 // app/api/auth/signup/wallet/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
+// Mock storage
+const users: any[] = [];
 
 export async function POST(request: NextRequest) {
 	try {
@@ -16,11 +18,10 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Check if wallet already registered
-		const existingUser = await prisma.user.findFirst({
-			where: {
-				OR: [{ walletAddress }, { username }],
-			},
-		});
+		const existingUser = users.find(
+			(user) =>
+				user.walletAddress === walletAddress || user.username === username,
+		);
 
 		if (existingUser) {
 			return NextResponse.json(
@@ -30,26 +31,19 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Create new user with wallet
-		const user = await prisma.user.create({
-			data: {
-				username: username || `wallet_${walletAddress.slice(0, 8)}`,
-				walletAddress,
-				provider: "wallet",
-			},
-		});
+		const newUser = {
+			id: Date.now().toString(),
+			username: username || `wallet_${walletAddress.slice(0, 8)}`,
+			walletAddress,
+			provider: "wallet",
+			createdAt: new Date().toISOString(),
+		};
 
-		// Create user profile
-		await prisma.userProfile.create({
-			data: {
-				userId: user.id,
-				balance: 1000,
-				portfolioValue: 1000,
-			},
-		});
+		users.push(newUser);
 
 		return NextResponse.json({
 			success: true,
-			user,
+			user: newUser,
 		});
 	} catch (error) {
 		console.error("Wallet sign-up error:", error);

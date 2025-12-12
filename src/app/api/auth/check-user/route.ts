@@ -2,7 +2,11 @@
 
 // app/api/auth/check-user/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
+// Mock user database (replace with real database later)
+const mockUsers = [
+	{ id: "1", email: "test@example.com", username: "testuser" },
+];
 
 export async function POST(request: NextRequest) {
 	try {
@@ -12,10 +16,8 @@ export async function POST(request: NextRequest) {
 			return NextResponse.json({ error: "Email is required" }, { status: 400 });
 		}
 
-		// Check if user exists with this email
-		const existingUser = await prisma.user.findUnique({
-			where: { email },
-		});
+		// Check if user exists in mock data
+		const existingUser = mockUsers.find((user) => user.email === email);
 
 		return NextResponse.json({
 			exists: !!existingUser,

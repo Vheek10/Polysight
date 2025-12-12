@@ -2,8 +2,9 @@
 
 // app/api/auth/signup/email/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+
+// Mock storage
+const users: any[] = [];
 
 export async function POST(request: NextRequest) {
 	try {
@@ -18,11 +19,9 @@ export async function POST(request: NextRequest) {
 		}
 
 		// Check if user already exists
-		const existingUser = await prisma.user.findFirst({
-			where: {
-				OR: [{ email }, { username }],
-			},
-		});
+		const existingUser = users.find(
+			(user) => user.email === email || user.username === username,
+		);
 
 		if (existingUser) {
 			return NextResponse.json(
@@ -31,34 +30,20 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Hash password
-		const hashedPassword = await bcrypt.hash(password, 12);
+		// Create new user (without password hashing for now)
+		const newUser = {
+			id: Date.now().toString(),
+			email,
+			username,
+			provider: "email",
+			createdAt: new Date().toISOString(),
+		};
 
-		// Create new user
-		const user = await prisma.user.create({
-			data: {
-				email,
-				username,
-				password: hashedPassword,
-				provider: "email",
-			},
-		});
-
-		// Create user profile
-		await prisma.userProfile.create({
-			data: {
-				userId: user.id,
-				balance: 1000,
-				portfolioValue: 1000,
-			},
-		});
-
-		// Return user data (excluding password)
-		const { password: _, ...userWithoutPassword } = user;
+		users.push(newUser);
 
 		return NextResponse.json({
 			success: true,
-			user: userWithoutPassword,
+			user: newUser,
 		});
 	} catch (error) {
 		console.error("Email sign-up error:", error);
