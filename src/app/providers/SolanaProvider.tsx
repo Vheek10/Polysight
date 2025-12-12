@@ -11,13 +11,13 @@ import {
 	PhantomWalletAdapter,
 	SolflareWalletAdapter,
 	CoinbaseWalletAdapter,
-	GlowWalletAdapter,
-	TrustWalletAdapter,
+
+    TrustWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { BackpackWalletAdapter } from "@solana/wallet-adapter-backpack";
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { clusterApiUrl } from "@solana/web3.js";
-
+import { GlowWalletAdapter } from "@solana/wallet-adapter-glow";
 // Import styles
 import "@solana/wallet-adapter-react-ui/styles.css";
 
