@@ -29,6 +29,31 @@ export default function SignInModal({
 	const { connected, publicKey, disconnect, connecting } = useWallet();
 	const { setVisible } = useWalletModal();
 
+	// Wallet logo with spinning animation component
+	const WalletLogoWithSpinner = ({
+		size = "md",
+	}: {
+		size?: "sm" | "md" | "lg";
+	}) => {
+		const iconSize =
+			size === "sm" ? "h-4 w-4" : size === "lg" ? "h-6 w-6" : "h-5 w-5";
+		const ringSize =
+			size === "sm" ? "-inset-2" : size === "lg" ? "-inset-3" : "-inset-2";
+
+		return (
+			<div className="relative">
+				{/* Spinning ring */}
+				<div className={`absolute ${ringSize}`}>
+					<div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+					<div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
+				</div>
+
+				{/* Wallet icon */}
+				<Wallet className={`${iconSize} relative z-10`} />
+			</div>
+		);
+	};
+
 	// Reset states when modal closes
 	useEffect(() => {
 		if (!isOpen) {
@@ -164,7 +189,10 @@ export default function SignInModal({
 				aria-label="Connect Solana wallet"
 				disabled={isConnectingWallet}>
 				{isConnectingWallet ? (
-					<Loader2 className="h-4 w-4 animate-spin" />
+					<>
+						<WalletLogoWithSpinner size="sm" />
+						Connecting...
+					</>
 				) : (
 					<>
 						<Wallet className="h-4 w-4" />
@@ -258,7 +286,10 @@ export default function SignInModal({
 					className="group relative flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-primary via-primary/90 to-primary/80 px-4 py-3.5 text-sm font-medium text-primary-foreground transition-all hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
 					aria-label="Connect Solana wallet">
 					{isConnectingWallet ? (
-						<Loader2 className="h-5 w-5 animate-spin" />
+						<>
+							<WalletLogoWithSpinner size="md" />
+							Awaiting Connection...
+						</>
 					) : (
 						<>
 							<Wallet className="h-5 w-5" />
