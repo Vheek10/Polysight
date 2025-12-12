@@ -10,6 +10,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@react-oauth/google": "^0.12.2",
     "@solana/wallet-adapter-backpack": "^0.1.14",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-coinbase": "^0.1.23",
@@ -27,6 +28,8 @@
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
+    "google-auth-library": "^10.5.0",
+    "jwt-decode": "^4.0.0",
     "lucide-react": "^0.559.0",
     "next": "16.0.7",
     "next-auth": "^4.24.13",
