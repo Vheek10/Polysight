@@ -3,7 +3,7 @@
 // app/api/auth/signup/google/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
-import { mockUsers } from "@/lib/mockUsers";
+import { mockUsers, addMockUser, type MockUser } from "@/lib/mockUsers";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -26,10 +26,8 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Check if user already exists
-		const existingUser = await prisma.user.findUnique({
-			where: { email: payload.email },
-		});
+		// Check if user already exists in mock data
+		const existingUser = mockUsers.find((user) => user.email === payload.email);
 
 		if (existingUser) {
 			return NextResponse.json(
@@ -38,34 +36,38 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		// Create new user
-		const user = await prisma.user.create({
-			data: {
-				email: payload.email!,
-				name: payload.name,
-				username: username || payload.name?.replace(/\s+/g, "_").toLowerCase(),
-				image: payload.picture,
-				emailVerified: new Date(),
-				provider: "google",
-				providerId: payload.sub,
-			},
-		});
-
-		// Create user profile
-		await prisma.userProfile.create({
-			data: {
-				userId: user.id,
-				balance: 1000, // Starting balance
+		// Create new user using mock data format
+		const newUser: MockUser = {
+			id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+			email: payload.email!,
+			name: payload.name || "",
+			username:
+				username ||
+				payload.name?.replace(/\s+/g, "_").toLowerCase() ||
+				`user_${Date.now()}`,
+			image: payload.picture || "",
+			emailVerified: new Date().toISOString(),
+			provider: "google",
+			providerId: payload.sub,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+			profile: {
+				balance: 1000,
 				portfolioValue: 1000,
+				watchlist: [],
+				transactions: [],
 			},
-		});
+		};
 
-		// Return user data (excluding sensitive info)
-		const { password, ...userWithoutPassword } = user;
+		// Add user to mock data
+		addMockUser(newUser);
+
+		// Return user data
+		const { profile, ...userWithoutProfile } = newUser;
 
 		return NextResponse.json({
 			success: true,
-			user: userWithoutPassword,
+			user: userWithoutProfile,
 		});
 	} catch (error) {
 		console.error("Google sign-up error:", error);

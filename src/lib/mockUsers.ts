@@ -1,40 +1,37 @@
 /** @format */
 
 // lib/mockUsers.ts
-// Simple mock database for development - NO PRISMA
-
-interface MockUser {
+export type MockUser = {
 	id: string;
-	email?: string;
-	name?: string;
-	username?: string;
-	walletAddress?: string;
+	email: string;
+	name: string;
+	username: string;
+	image: string;
+	emailVerified: string;
 	provider: string;
+	providerId: string;
 	createdAt: string;
+	updatedAt: string;
+	profile: {
+		balance: number;
+		portfolioValue: number;
+		watchlist: any[];
+		transactions: any[];
+	};
+};
+
+// In-memory storage for mock users
+let mockUsers: MockUser[] = [
+	// Add some initial mock users here if needed
+];
+
+export { mockUsers };
+
+export function addMockUser(user: MockUser) {
+	mockUsers.push(user);
+	return user;
 }
 
-export const mockUsers = {
-	users: [] as MockUser[],
-
-	createUser: (userData: Omit<MockUser, "id" | "createdAt">): MockUser => {
-		const newUser: MockUser = {
-			id: Date.now().toString(),
-			...userData,
-			createdAt: new Date().toISOString(),
-		};
-		mockUsers.users.push(newUser);
-		return newUser;
-	},
-
-	findUserByEmail: (email: string): MockUser | undefined => {
-		return mockUsers.users.find((user) => user.email === email);
-	},
-
-	findUserByWallet: (walletAddress: string): MockUser | undefined => {
-		return mockUsers.users.find((user) => user.walletAddress === walletAddress);
-	},
-
-	findUserByUsername: (username: string): MockUser | undefined => {
-		return mockUsers.users.find((user) => user.username === username);
-	},
-};
+export function findUserByEmail(email: string) {
+	return mockUsers.find((user) => user.email === email);
+}
