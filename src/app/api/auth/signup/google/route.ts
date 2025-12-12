@@ -3,7 +3,7 @@
 // app/api/auth/signup/google/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { OAuth2Client } from "google-auth-library";
-import { prisma } from "@/lib/mockUsers";
+import { mockUsers } from "@/lib/mockUsers";
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
