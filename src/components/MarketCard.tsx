@@ -1,11 +1,12 @@
 /** @format */
 
-// src/components/MarketCard.tsx - Updated to match new types
+// components/MarketCard.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Market } from "@/types/market";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface MarketCardProps {
 	market: Market;
@@ -17,10 +18,8 @@ export default function MarketCard({ market }: MarketCardProps) {
 	const [amount, setAmount] = useState<string>("");
 	const [isTradeMode, setIsTradeMode] = useState(false);
 
-	// Safety checks for market data
 	if (!market) return null;
 
-	// Get YES and NO outcomes
 	const yesOutcome = market.outcomes.find((o) => o.name === "YES");
 	const noOutcome = market.outcomes.find((o) => o.name === "NO");
 
@@ -28,8 +27,10 @@ export default function MarketCard({ market }: MarketCardProps) {
 	const noPrice = noOutcome?.currentPrice || 0.5;
 	const yesPercentage = Math.round((yesOutcome?.probability || 0.5) * 100);
 	const noPercentage = Math.round((noOutcome?.probability || 0.5) * 100);
-	const participants = market.totalTrades || 0;
-	const change = "+5.2%"; // Mock change for now
+
+	const priceChange = market.priceChange24h || 0;
+	const isPositive = priceChange > 0;
+	const changeValue = `${isPositive ? "+" : ""}${priceChange.toFixed(1)}%`;
 
 	const formatVolume = (volume: number): string => {
 		if (!volume && volume !== 0) return "$0";
@@ -37,10 +38,6 @@ export default function MarketCard({ market }: MarketCardProps) {
 		if (volume >= 1000) return `$${(volume / 1000).toFixed(1)}K`;
 		return `$${volume}`;
 	};
-
-	// Safely get change value
-	const changeValue = change || "0%";
-	const isPositive = changeValue.startsWith("+");
 
 	const handleYesClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -58,17 +55,14 @@ export default function MarketCard({ market }: MarketCardProps) {
 		e.stopPropagation();
 		if (!selectedSide || !amount || parseFloat(amount) <= 0) return;
 
-		// Submit trade logic here
 		console.log(
-			`Trade: ${selectedSide.toUpperCase()} $${amount} on market ${market.id}`,
+			`Trade: ${selectedSide.toUpperCase()} $${amount} on ${market.id}`,
 		);
 
-		// Reset trade mode
 		setIsTradeMode(false);
 		setSelectedSide(null);
 		setAmount("");
 
-		// Navigate to market page or show success message
 		router.push(`/market/${market.id}?side=${selectedSide}&amount=${amount}`);
 	};
 
@@ -81,7 +75,7 @@ export default function MarketCard({ market }: MarketCardProps) {
 
 	const handleCardClick = () => {
 		if (!isTradeMode) {
-			router.push(`/market/${market.id}`);
+			router.push(`/market/${market.slug || market.id}`);
 		}
 	};
 
@@ -89,27 +83,33 @@ export default function MarketCard({ market }: MarketCardProps) {
 		<div
 			onClick={handleCardClick}
 			className="cursor-pointer bg-card border border-border rounded-lg hover:bg-accent/30 transition-colors">
-			{/* Market Content - Compact */}
 			<div className="p-4">
+				{/* Compact Header */}
 				<div className="flex items-center justify-between mb-2">
 					<span className="text-xs font-medium text-muted-foreground">
-						{market.category || "all"}
+						{market.category || "Uncategorized"}
 					</span>
-					<span
-						className={`text-xs font-medium ${
+					<div
+						className={`flex items-center gap-1 text-xs font-medium ${
 							isPositive
 								? "text-green-600 dark:text-green-400"
 								: "text-red-600 dark:text-red-400"
 						}`}>
+						{isPositive ? (
+							<TrendingUp className="h-3 w-3" />
+						) : (
+							<TrendingDown className="h-3 w-3" />
+						)}
 						{changeValue}
-					</span>
+					</div>
 				</div>
 
+				{/* Question - Compact */}
 				<h3 className="font-medium text-sm mb-3 line-clamp-2 text-card-foreground leading-tight">
 					{market.question}
 				</h3>
 
-				{/* Probability Bars - Compact */}
+				{/* Probability Bar - Compact */}
 				<div className="mb-3">
 					<div className="flex justify-between text-xs mb-1">
 						<span className="text-green-600 dark:text-green-400 font-medium">
@@ -132,23 +132,22 @@ export default function MarketCard({ market }: MarketCardProps) {
 					<div>
 						<p className="text-muted-foreground">Volume</p>
 						<p className="font-medium text-card-foreground">
-							{formatVolume(market.volume || 0)}
+							{formatVolume(market.volume24h || market.volume || 0)}
 						</p>
 					</div>
 					<div>
-						<p className="text-muted-foreground">Traders</p>
+						<p className="text-muted-foreground">Liquidity</p>
 						<p className="font-medium text-card-foreground">
-							{participants.toLocaleString()}
+							{formatVolume(market.liquidity || 0)}
 						</p>
 					</div>
 				</div>
 
-				{/* Trade Mode UI */}
+				{/* Trade Mode */}
 				{isTradeMode ? (
 					<div
 						className="space-y-2"
 						onClick={(e) => e.stopPropagation()}>
-						{/* Selected Side Display */}
 						<div
 							className={`p-1.5 rounded text-center text-xs font-medium ${
 								selectedSide === "yes"
@@ -158,25 +157,21 @@ export default function MarketCard({ market }: MarketCardProps) {
 							Buy {selectedSide?.toUpperCase()}
 						</div>
 
-						{/* Amount Input */}
-						<div className="space-y-1">
-							<div className="relative">
-								<input
-									type="number"
-									value={amount}
-									onChange={(e) => setAmount(e.target.value)}
-									placeholder="Amount"
-									className="w-full bg-background border border-input rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
-									min="0"
-									step="0.01"
-								/>
-								<div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-									USDC
-								</div>
+						<div className="relative">
+							<input
+								type="number"
+								value={amount}
+								onChange={(e) => setAmount(e.target.value)}
+								placeholder="Amount"
+								className="w-full bg-background border border-input rounded px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+								min="0"
+								step="0.01"
+							/>
+							<div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+								USDC
 							</div>
 						</div>
 
-						{/* Action Buttons */}
 						<div className="flex gap-1.5">
 							<button
 								onClick={handleCancelTrade}
@@ -198,9 +193,8 @@ export default function MarketCard({ market }: MarketCardProps) {
 						</div>
 					</div>
 				) : (
-					/* Normal Yes/No Buttons - Compact */
+					/* Yes/No Buttons - Your compact styling */
 					<div className="flex gap-1.5">
-						{/* YES Button */}
 						<button
 							onClick={handleYesClick}
 							className="flex-1 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 text-xs font-medium rounded transition-colors">
@@ -209,8 +203,6 @@ export default function MarketCard({ market }: MarketCardProps) {
 								<span className="text-[10px] opacity-90">YES</span>
 							</div>
 						</button>
-
-						{/* NO Button */}
 						<button
 							onClick={handleNoClick}
 							className="flex-1 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium rounded transition-colors">

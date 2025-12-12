@@ -4,7 +4,7 @@
 "use client";
 
 import { X, Mail, Loader2, Wallet, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -24,9 +24,35 @@ export default function SignInModal({
 	const [email, setEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [emailError, setEmailError] = useState<string | null>(null);
+	const [isConnectingWallet, setIsConnectingWallet] = useState(false);
 
 	const { connected, publicKey, disconnect, connecting } = useWallet();
 	const { setVisible } = useWalletModal();
+
+	// Reset states when modal closes
+	useEffect(() => {
+		if (!isOpen) {
+			setView("welcome");
+			setEmail("");
+			setEmailError(null);
+			setIsLoading(false);
+			setIsConnectingWallet(false);
+		}
+	}, [isOpen]);
+
+	// Handle wallet connection state changes
+	useEffect(() => {
+		if (connected && publicKey && view === "wallet") {
+			// Auto sign in when wallet connects in wallet view
+			onSignIn();
+			onClose();
+		}
+	}, [connected, publicKey, view, onSignIn, onClose]);
+
+	// Handle wallet connecting state
+	useEffect(() => {
+		setIsConnectingWallet(connecting);
+	}, [connecting]);
 
 	if (!isOpen) return null;
 
@@ -72,13 +98,17 @@ export default function SignInModal({
 	};
 
 	const handleWalletSignIn = () => {
-		if (connected) {
+		if (connected && publicKey) {
 			onSignIn();
 			onClose();
+		} else {
+			// Show wallet modal if not connected
+			setVisible(true);
 		}
 	};
 
 	const truncateAddress = (address: string, length: number = 4) => {
+		if (!address) return "";
 		if (address.length <= length * 2 + 2) return address;
 		return `${address.slice(0, length)}...${address.slice(-length)}`;
 	};
@@ -126,11 +156,21 @@ export default function SignInModal({
 
 		return (
 			<button
-				onClick={() => setView("wallet")}
+				onClick={() => {
+					setView("wallet");
+					setVisible(true);
+				}}
 				className="flex w-full items-center justify-center gap-2 rounded-lg border border-input bg-transparent px-4 py-2.5 text-sm font-medium text-card-foreground transition-all hover:bg-accent hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
-				aria-label="Connect Solana wallet">
-				<Wallet className="h-4 w-4" />
-				Continue with Wallet
+				aria-label="Connect Solana wallet"
+				disabled={isConnectingWallet}>
+				{isConnectingWallet ? (
+					<Loader2 className="h-4 w-4 animate-spin" />
+				) : (
+					<>
+						<Wallet className="h-4 w-4" />
+						Continue with Wallet
+					</>
+				)}
 			</button>
 		);
 	};
@@ -191,7 +231,12 @@ export default function SignInModal({
 
 				{/* Cancel button */}
 				<button
-					onClick={() => setVisible(false)}
+					onClick={() => {
+						if (disconnect) {
+							disconnect();
+						}
+						setView("welcome");
+					}}
 					className="mt-4 w-full rounded-lg border border-input bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
 					aria-label="Cancel wallet connection">
 					Cancel
@@ -201,7 +246,7 @@ export default function SignInModal({
 	};
 
 	const renderWalletConnectView = () => {
-		if (connecting) {
+		if (isConnectingWallet) {
 			return renderWalletConnectingAnimation();
 		}
 
@@ -209,16 +254,47 @@ export default function SignInModal({
 			<>
 				<button
 					onClick={() => setVisible(true)}
-					disabled={connecting}
+					disabled={isConnectingWallet}
 					className="group relative flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-primary via-primary/90 to-primary/80 px-4 py-3.5 text-sm font-medium text-primary-foreground transition-all hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
 					aria-label="Connect Solana wallet">
-					<Wallet className="h-5 w-5" />
-					Continue with Wallet
+					{isConnectingWallet ? (
+						<Loader2 className="h-5 w-5 animate-spin" />
+					) : (
+						<>
+							<Wallet className="h-5 w-5" />
+							Continue with Wallet
+						</>
+					)}
 				</button>
-			
+
+				{/* Help Text */}
+				<div className="rounded-lg bg-accent/30 p-4">
+					<p className="text-sm text-muted-foreground">
+						<strong className="font-medium text-card-foreground">
+							Need a wallet?
+						</strong>{" "}
+						Download{" "}
+						<a
+							href="https://phantom.app"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
+							Phantom
+						</a>{" "}
+						or{" "}
+						<a
+							href="https://solflare.com"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
+							Solflare
+						</a>{" "}
+						to get started with Solana.
+					</p>
+				</div>
 
 				{/* Already have wallet connected? */}
-				{connected && (
+				{connected && publicKey && (
 					<div className="space-y-3">
 						<div className="rounded-lg border border-green-200 bg-green-50 p-4">
 							<div className="flex items-center gap-3">
@@ -228,7 +304,7 @@ export default function SignInModal({
 										Wallet Connected
 									</p>
 									<p className="text-xs text-green-700">
-										{truncateAddress(publicKey?.toString() || "", 8)}
+										{truncateAddress(publicKey.toString(), 8)}
 									</p>
 								</div>
 							</div>
@@ -245,7 +321,11 @@ export default function SignInModal({
 	};
 
 	return (
-		<div className="fixed inset-0 z-[100] overflow-y-auto">
+		<div
+			className="fixed inset-0 z-[100] overflow-y-auto"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="signin-modal-title">
 			{/* Backdrop */}
 			<div
 				className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
@@ -275,7 +355,9 @@ export default function SignInModal({
 							<div className="space-y-6">
 								{/* Header */}
 								<div className="text-center">
-									<h1 className="text-2xl font-bold tracking-tight text-card-foreground">
+									<h1
+										id="signin-modal-title"
+										className="text-2xl font-bold tracking-tight text-card-foreground">
 										Welcome to Polysight
 									</h1>
 									<p className="mt-2 text-sm text-muted-foreground">
@@ -425,10 +507,16 @@ export default function SignInModal({
 								{/* Header */}
 								<div className="text-center">
 									<button
-										onClick={() => setView("welcome")}
+										onClick={() => {
+											setView("welcome");
+											if (isConnectingWallet && disconnect) {
+												disconnect();
+											}
+										}}
 										className="mb-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
-										aria-label="Back to sign in options">
-										← Back
+										aria-label="Back to sign in options"
+										disabled={isConnectingWallet && !disconnect}>
+										← Back {isConnectingWallet ? "(Cancel)" : ""}
 									</button>
 									<h2 className="text-2xl font-bold tracking-tight text-card-foreground">
 										Connect Solana Wallet
@@ -442,7 +530,7 @@ export default function SignInModal({
 								<div className="space-y-3">{renderWalletConnectView()}</div>
 
 								{/* Switch to other methods */}
-								{!connecting && (
+								{!isConnectingWallet && (
 									<p className="text-center text-sm text-muted-foreground">
 										Prefer email or Google sign in?{" "}
 										<button
