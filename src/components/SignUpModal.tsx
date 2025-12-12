@@ -4,16 +4,31 @@
 "use client";
 
 import { X, Mail, Loader2, User, Lock, Wallet } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import {
+	GoogleLogin,
+	GoogleOAuthProvider,
+	CredentialResponse,
+} from "@react-oauth/google";
+import { useRouter } from "next/navigation";
+import { jwtDecode } from "jwt-decode";
 
 interface SignUpModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	onSwitchToSignIn: () => void;
-	onSignUp: () => void;
+	onSignUp: (userData?: any) => void; // Updated to accept user data
+}
+
+interface GoogleToken {
+	email: string;
+	name: string;
+	picture: string;
+	sub: string;
+	email_verified: boolean;
 }
 
 export default function SignUpModal({
@@ -22,6 +37,7 @@ export default function SignUpModal({
 	onSwitchToSignIn,
 	onSignUp,
 }: SignUpModalProps) {
+	const router = useRouter();
 	const [view, setView] = useState<"welcome" | "wallet">("welcome");
 	const [email, setEmail] = useState("");
 	const [username, setUsername] = useState("");
@@ -32,9 +48,44 @@ export default function SignUpModal({
 	const [passwordError, setPasswordError] = useState<string | null>(null);
 	const [showPassword, setShowPassword] = useState(false);
 	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+	const [termsAccepted, setTermsAccepted] = useState(false);
+	const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+	const [googleUser, setGoogleUser] = useState<GoogleToken | null>(null);
 
-	const { connected, connecting } = useWallet();
+	const { connected, publicKey, disconnect, connecting } = useWallet();
 	const { setVisible } = useWalletModal();
+
+	// Google Client ID from environment variables
+	const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+
+	// Reset states when modal closes
+	useEffect(() => {
+		if (!isOpen) {
+			setView("welcome");
+			setEmail("");
+			setUsername("");
+			setPassword("");
+			setConfirmPassword("");
+			setEmailError(null);
+			setPasswordError(null);
+			setShowPassword(false);
+			setShowConfirmPassword(false);
+			setTermsAccepted(false);
+			setIsLoading(false);
+			setIsConnectingWallet(false);
+			setGoogleUser(null);
+		}
+	}, [isOpen]);
+
+	// Handle wallet connection state changes
+	useEffect(() => {
+		setIsConnectingWallet(connecting);
+
+		if (connected && publicKey && view === "wallet") {
+			// Auto sign up when wallet connects in wallet view
+			handleWalletSignUp();
+		}
+	}, [connected, publicKey, view, connecting]);
 
 	if (!isOpen) return null;
 
@@ -57,26 +108,105 @@ export default function SignUpModal({
 		if (!/\d/.test(password)) {
 			return "Password must contain at least one number";
 		}
+		if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+			return "Password must contain at least one special character";
+		}
 		return null;
 	};
 
-	const handleGoogleSignUp = async () => {
+	// Handle Google Sign-Up Success
+	const handleGoogleSuccess = async (
+		credentialResponse: CredentialResponse,
+	) => {
 		try {
 			setIsLoading(true);
-			await new Promise((resolve) => setTimeout(resolve, 1500));
-			setIsLoading(false);
-			onSignUp();
-			onClose();
+
+			if (credentialResponse.credential) {
+				// CORRECTED: Use jwtDecode (camelCase) not jwt_decode
+				const decodedToken: GoogleToken = jwtDecode(
+					credentialResponse.credential,
+				);
+				setGoogleUser(decodedToken);
+
+				// Check if user exists (for sign-up vs sign-in flow)
+				const checkUserResponse = await fetch("/api/auth/check-user", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ email: decodedToken.email }),
+				});
+
+				const userExists = await checkUserResponse.json();
+
+				if (userExists.exists) {
+					// User already exists, redirect to sign-in
+					setEmailError(
+						"An account with this email already exists. Please sign in instead.",
+					);
+					setIsLoading(false);
+					return;
+				}
+
+				// Create new user with Google auth
+				const signUpResponse = await fetch("/api/auth/signup/google", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						token: credentialResponse.credential,
+						username: generateUsername(decodedToken.name),
+					}),
+				});
+
+				if (signUpResponse.ok) {
+					const userData = await signUpResponse.json();
+
+					// Call onSignUp with user data
+					onSignUp({
+						...userData,
+						name: decodedToken.name,
+						email: decodedToken.email,
+						image: decodedToken.picture,
+					});
+
+					onClose();
+				} else {
+					const error = await signUpResponse.json();
+					setEmailError(error.message || "Sign-up failed. Please try again.");
+				}
+			}
 		} catch (error) {
 			console.error("Google sign up error:", error);
+			setEmailError("An unexpected error occurred. Please try again.");
+		} finally {
 			setIsLoading(false);
 		}
+	};
+
+	// Generate username from Google name
+	const generateUsername = (name: string): string => {
+		const baseUsername = name
+			.toLowerCase()
+			.replace(/[^a-z0-9]/g, "_")
+			.substring(0, 15);
+
+		const randomSuffix = Math.floor(Math.random() * 1000);
+		return `${baseUsername}_${randomSuffix}`;
+	};
+
+	// Handle Google Sign-Up Error
+	const handleGoogleError = () => {
+		setEmailError("Google authentication failed. Please try again.");
 	};
 
 	const handleEmailSignUp = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setEmailError(null);
 		setPasswordError(null);
+
+		// Validate terms acceptance
+		if (!termsAccepted) {
+			setEmailError("You must accept the Terms of Service and Privacy Policy");
+			return;
+		}
 
 		// Validate email format
 		if (!validateEmail(email)) {
@@ -87,6 +217,14 @@ export default function SignUpModal({
 		// Validate username
 		if (username.length < 3) {
 			setEmailError("Username must be at least 3 characters");
+			return;
+		}
+
+		// Validate username format (alphanumeric with underscores)
+		if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+			setEmailError(
+				"Username can only contain letters, numbers, and underscores",
+			);
 			return;
 		}
 
@@ -105,14 +243,85 @@ export default function SignUpModal({
 
 		try {
 			setIsLoading(true);
-			await new Promise((resolve) => setTimeout(resolve, 1500));
-			setIsLoading(false);
-			onSignUp();
-			onClose();
+
+			// Check if user already exists
+			const checkResponse = await fetch("/api/auth/check-user", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email }),
+			});
+
+			const userExists = await checkResponse.json();
+
+			if (userExists.exists) {
+				setEmailError(
+					"An account with this email already exists. Please sign in instead.",
+				);
+				setIsLoading(false);
+				return;
+			}
+
+			// Create new user with email/password
+			const signUpResponse = await fetch("/api/auth/signup/email", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					email,
+					username,
+					password,
+				}),
+			});
+
+			if (signUpResponse.ok) {
+				const userData = await signUpResponse.json();
+				onSignUp(userData);
+				onClose();
+			} else {
+				const error = await signUpResponse.json();
+				setEmailError(error.message || "Sign-up failed. Please try again.");
+			}
 		} catch (error) {
 			console.error("Email sign up error:", error);
-			setIsLoading(false);
 			setEmailError("Failed to create account. Please try again.");
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const handleWalletSignUp = async () => {
+		if (connected && publicKey) {
+			try {
+				setIsLoading(true);
+
+				// Generate username from wallet address
+				const walletUsername = `wallet_${publicKey.toString().slice(0, 8)}`;
+
+				const response = await fetch("/api/auth/signup/wallet", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						walletAddress: publicKey.toString(),
+						username: walletUsername,
+					}),
+				});
+
+				if (response.ok) {
+					const userData = await response.json();
+					onSignUp(userData);
+					onClose();
+				} else {
+					const error = await response.json();
+					setEmailError(error.message || "Wallet sign-up failed.");
+				}
+			} catch (error) {
+				console.error("Wallet sign up error:", error);
+				setEmailError("Failed to create account with wallet.");
+			} finally {
+				setIsLoading(false);
+			}
+		} else {
+			// Show wallet modal if not connected
+			setVisible(true);
 		}
 	};
 
@@ -124,21 +333,150 @@ export default function SignUpModal({
 		setShowConfirmPassword(!showConfirmPassword);
 	};
 
-	const handleWalletSignUp = () => {
-		if (connected) {
-			onSignUp();
-			onClose();
+	const truncateAddress = (address: string, length: number = 4) => {
+		if (!address) return "";
+		if (address.length <= length * 2 + 2) return address;
+		return `${address.slice(0, length)}...${address.slice(-length)}`;
+	};
+
+	// Wallet logo with spinning animation component
+	const WalletLogoWithSpinner = ({
+		size = "md",
+	}: {
+		size?: "sm" | "md" | "lg";
+	}) => {
+		const iconSize =
+			size === "sm" ? "h-4 w-4" : size === "lg" ? "h-6 w-6" : "h-5 w-5";
+		const ringSize =
+			size === "sm" ? "-inset-2" : size === "lg" ? "-inset-3" : "-inset-2";
+
+		return (
+			<div className="relative">
+				{/* Spinning ring */}
+				<div className={`absolute ${ringSize}`}>
+					<div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+					<div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
+				</div>
+
+				{/* Wallet icon */}
+				<Wallet className={`${iconSize} relative z-10`} />
+			</div>
+		);
+	};
+
+	// Render Google Sign-Up Button
+	const renderGoogleSignUpButton = () => {
+		if (!GOOGLE_CLIENT_ID) {
+			return (
+				<button
+					onClick={() =>
+						setEmailError(
+							"Google OAuth not configured. Please contact support.",
+						)
+					}
+					className="group relative flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-white to-white/90 px-4 py-3 text-sm font-medium text-gray-900 transition-all hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50 border border-gray-300"
+					aria-label="Sign up with Google"
+					disabled={isLoading}>
+					{isLoading ? (
+						<Loader2 className="h-4 w-4 animate-spin" />
+					) : (
+						<>
+							<svg
+								className="h-4 w-4"
+								viewBox="0 0 24 24"
+								aria-hidden="true">
+								<path
+									fill="currentColor"
+									d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+								/>
+								<path
+									fill="currentColor"
+									d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+								/>
+								<path
+									fill="currentColor"
+									d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+								/>
+								<path
+									fill="currentColor"
+									d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+								/>
+							</svg>
+							<span>Sign up with Google</span>
+						</>
+					)}
+				</button>
+			);
 		}
+
+		return (
+			<div className="google-signup-button">
+				<GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+					<GoogleLogin
+						onSuccess={handleGoogleSuccess}
+						onError={handleGoogleError}
+						type="standard"
+						theme="outline"
+						size="large"
+						text="signup_with"
+						shape="rectangular"
+						logo_alignment="left"
+						width="100%"
+						ux_mode="popup"
+						context="signup"
+					/>
+				</GoogleOAuthProvider>
+			</div>
+		);
 	};
 
 	const renderWalletConnectButton = () => {
+		if (connected && publicKey) {
+			return (
+				<div className="space-y-3">
+					<div className="rounded-lg border border-green-200 bg-green-50 p-4">
+						<div className="flex items-center gap-3">
+							<div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+							<div>
+								<p className="text-sm font-medium text-green-900">
+									Wallet Connected
+								</p>
+								<p className="text-xs text-green-700">
+									{truncateAddress(publicKey.toString())}
+								</p>
+							</div>
+						</div>
+						<button
+							onClick={handleWalletSignUp}
+							disabled={isLoading}
+							className="mt-3 w-full rounded-lg bg-green-600 py-2 text-sm font-medium text-white transition-all hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500">
+							{isLoading ? "Creating account..." : "Sign Up with Wallet"}
+						</button>
+					</div>
+				</div>
+			);
+		}
+
 		return (
 			<button
-				onClick={() => setView("wallet")}
+				onClick={() => {
+					setView("wallet");
+					setVisible(true);
+				}}
 				className="flex w-full items-center justify-center gap-2 rounded-lg border border-input bg-transparent px-4 py-2.5 text-sm font-medium text-card-foreground transition-all hover:bg-accent hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
-				aria-label="Connect Solana wallet">
-				<Wallet className="h-4 w-4" />
-				Connect Solana Wallet
+				aria-label="Connect Solana wallet"
+				disabled={isConnectingWallet}>
+				{isConnectingWallet ? (
+					<>
+						<WalletLogoWithSpinner size="sm" />
+						Connecting...
+					</>
+				) : (
+					<>
+						<Wallet className="h-4 w-4" />
+						Sign Up with Wallet
+					</>
+				)}
 			</button>
 		);
 	};
@@ -199,7 +537,12 @@ export default function SignUpModal({
 
 				{/* Cancel button */}
 				<button
-					onClick={() => setVisible(false)}
+					onClick={() => {
+						if (disconnect) {
+							disconnect();
+						}
+						setView("welcome");
+					}}
 					className="mt-4 w-full rounded-lg border border-input bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
 					aria-label="Cancel wallet connection">
 					Cancel
@@ -209,7 +552,7 @@ export default function SignUpModal({
 	};
 
 	const renderWalletConnectView = () => {
-		if (connecting) {
+		if (isConnectingWallet) {
 			return renderWalletConnectingAnimation();
 		}
 
@@ -217,18 +560,82 @@ export default function SignUpModal({
 			<>
 				<button
 					onClick={() => setVisible(true)}
-					disabled={connecting}
+					disabled={isConnectingWallet}
 					className="group relative flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-primary via-primary/90 to-primary/80 px-4 py-3.5 text-sm font-medium text-primary-foreground transition-all hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
 					aria-label="Connect Solana wallet">
-					<Wallet className="h-5 w-5" />
-					Connect Solana Wallet
+					{isConnectingWallet ? (
+						<>
+							<WalletLogoWithSpinner size="md" />
+							Awaiting Connection...
+						</>
+					) : (
+						<>
+							<Wallet className="h-5 w-5" />
+							Connect Solana Wallet
+						</>
+					)}
 				</button>
+
+				{/* Help Text */}
+				<div className="rounded-lg bg-accent/30 p-4">
+					<p className="text-sm text-muted-foreground">
+						<strong className="font-medium text-card-foreground">
+							Need a wallet?
+						</strong>{" "}
+						Download{" "}
+						<a
+							href="https://phantom.app"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
+							Phantom
+						</a>{" "}
+						or{" "}
+						<a
+							href="https://solflare.com"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
+							Solflare
+						</a>{" "}
+						to get started with Solana.
+					</p>
+				</div>
+
+				{/* Already have wallet connected? */}
+				{connected && publicKey && (
+					<div className="space-y-3">
+						<div className="rounded-lg border border-green-200 bg-green-50 p-4">
+							<div className="flex items-center gap-3">
+								<div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+								<div>
+									<p className="text-sm font-medium text-green-900">
+										Wallet Connected
+									</p>
+									<p className="text-xs text-green-700">
+										{truncateAddress(publicKey.toString(), 8)}
+									</p>
+								</div>
+							</div>
+							<button
+								onClick={handleWalletSignUp}
+								disabled={isLoading}
+								className="mt-3 w-full rounded-lg bg-green-600 py-2 text-sm font-medium text-white transition-all hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500">
+								{isLoading ? "Creating account..." : "Sign Up with Wallet"}
+							</button>
+						</div>
+					</div>
+				)}
 			</>
 		);
 	};
 
 	return (
-		<div className="fixed inset-0 z-[100] overflow-y-auto">
+		<div
+			className="fixed inset-0 z-[100] overflow-y-auto"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="signup-modal-title">
 			{/* Backdrop */}
 			<div
 				className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
@@ -258,7 +665,9 @@ export default function SignUpModal({
 							<div className="space-y-6">
 								{/* Header */}
 								<div className="text-center">
-									<h1 className="text-2xl font-bold tracking-tight text-card-foreground">
+									<h1
+										id="signup-modal-title"
+										className="text-2xl font-bold tracking-tight text-card-foreground">
 										Join Polysight
 									</h1>
 									<p className="mt-2 text-sm text-muted-foreground">
@@ -269,41 +678,8 @@ export default function SignUpModal({
 
 								{/* Action Buttons */}
 								<div className="space-y-4">
-									{/* Google Button */}
-									<button
-										onClick={handleGoogleSignUp}
-										disabled={isLoading}
-										className="group relative flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-white to-white/90 px-4 py-3 text-sm font-medium text-gray-900 transition-all hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
-										aria-label="Sign up with Google">
-										{isLoading ? (
-											<Loader2 className="h-4 w-4 animate-spin" />
-										) : (
-											<>
-												<svg
-													className="h-4 w-4"
-													viewBox="0 0 24 24"
-													aria-hidden="true">
-													<path
-														fill="currentColor"
-														d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-													/>
-													<path
-														fill="currentColor"
-														d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-													/>
-													<path
-														fill="currentColor"
-														d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-													/>
-													<path
-														fill="currentColor"
-														d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-													/>
-												</svg>
-												<span>Sign up with Google</span>
-											</>
-										)}
-									</button>
+									{/* Google Button - Updated with real OAuth */}
+									{renderGoogleSignUpButton()}
 
 									{/* OR Divider */}
 									<div className="relative">
@@ -360,16 +736,24 @@ export default function SignUpModal({
 												<input
 													type="text"
 													value={username}
-													onChange={(e) => setUsername(e.target.value)}
-													placeholder="Username"
+													onChange={(e) => {
+														setUsername(e.target.value);
+														setEmailError(null);
+													}}
+													placeholder="Username (3-20 characters)"
 													className="w-full rounded-lg border border-input bg-transparent py-3 pl-10 pr-4 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
 													required
 													minLength={3}
 													maxLength={20}
+													pattern="[a-zA-Z0-9_]+"
+													title="Letters, numbers, and underscores only"
 													aria-label="Username"
 													disabled={isLoading}
 												/>
 											</div>
+											<p className="text-xs text-muted-foreground">
+												Letters, numbers, and underscores only
+											</p>
 										</div>
 
 										{/* Password Field */}
@@ -383,7 +767,7 @@ export default function SignUpModal({
 														setPassword(e.target.value);
 														setPasswordError(null);
 													}}
-													placeholder="Password"
+													placeholder="Password (min 8 characters)"
 													className="w-full rounded-lg border border-input bg-transparent py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
 													required
 													minLength={8}
@@ -444,6 +828,10 @@ export default function SignUpModal({
 													{passwordError}
 												</p>
 											)}
+											<p className="text-xs text-muted-foreground">
+												Must contain uppercase, lowercase, number, and special
+												character
+											</p>
 										</div>
 
 										{/* Confirm Password Field */}
@@ -509,6 +897,33 @@ export default function SignUpModal({
 											</div>
 										</div>
 
+										{/* Terms Agreement */}
+										<label className="flex items-start gap-3 text-xs">
+											<input
+												type="checkbox"
+												checked={termsAccepted}
+												onChange={(e) => setTermsAccepted(e.target.checked)}
+												className="mt-0.5 h-4 w-4 rounded border-input text-primary focus:ring-primary/50"
+												required
+												aria-label="Agree to terms and privacy policy"
+												disabled={isLoading}
+											/>
+											<span className="text-muted-foreground">
+												I agree to the{" "}
+												<a
+													href="/terms"
+													className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
+													Terms of Service
+												</a>{" "}
+												and{" "}
+												<a
+													href="/privacy"
+													className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
+													Privacy Policy
+												</a>
+											</span>
+										</label>
+
 										{/* Create Account Button */}
 										<button
 											type="submit"
@@ -525,30 +940,6 @@ export default function SignUpModal({
 											)}
 										</button>
 									</form>
-
-									{/* Terms Agreement */}
-									<label className="flex items-start gap-3 text-xs">
-										<input
-											type="checkbox"
-											className="mt-0.5 h-4 w-4 rounded border-input text-primary focus:ring-primary/50"
-											required
-											aria-label="Agree to terms and privacy policy"
-										/>
-										<span className="text-muted-foreground">
-											I agree to the{" "}
-											<a
-												href="/terms"
-												className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
-												Terms of Service
-											</a>{" "}
-											and{" "}
-											<a
-												href="/privacy"
-												className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
-												Privacy Policy
-											</a>
-										</span>
-									</label>
 
 									{/* OR Divider */}
 									<div className="relative">
@@ -584,10 +975,16 @@ export default function SignUpModal({
 								{/* Header */}
 								<div className="text-center">
 									<button
-										onClick={() => setView("welcome")}
+										onClick={() => {
+											setView("welcome");
+											if (isConnectingWallet && disconnect) {
+												disconnect();
+											}
+										}}
 										className="mb-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
-										aria-label="Back to sign up options">
-										← Back
+										aria-label="Back to sign up options"
+										disabled={isConnectingWallet && !disconnect}>
+										← Back {isConnectingWallet ? "(Cancel)" : ""}
 									</button>
 									<h2 className="text-2xl font-bold tracking-tight text-card-foreground">
 										Sign Up with Solana Wallet
@@ -601,7 +998,7 @@ export default function SignUpModal({
 								<div className="space-y-3">{renderWalletConnectView()}</div>
 
 								{/* Switch to other methods */}
-								{!connecting && (
+								{!isConnectingWallet && (
 									<p className="text-center text-sm text-muted-foreground">
 										Prefer email or Google sign up?{" "}
 										<button

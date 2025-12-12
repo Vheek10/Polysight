@@ -4,15 +4,31 @@
 "use client";
 
 import { X, Mail, Loader2, Wallet, LogOut } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import {
+	GoogleLogin,
+	GoogleOAuthProvider,
+	CredentialResponse,
+	googleLogout,
+} from "@react-oauth/google";
+import { jwtDecode } from "jwt-decode";
 
 interface SignInModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onSignIn: () => void;
+	onSignIn: (userData?: any) => void; // Updated to accept optional user data
+}
+
+// Interface for decoded JWT token
+interface GoogleToken {
+	email: string;
+	name: string;
+	picture: string;
+	sub: string;
 }
 
 export default function SignInModal({
@@ -20,33 +36,134 @@ export default function SignInModal({
 	onClose,
 	onSignIn,
 }: SignInModalProps) {
+	const router = useRouter();
 	const [view, setView] = useState<"welcome" | "wallet">("welcome");
 	const [email, setEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [emailError, setEmailError] = useState<string | null>(null);
+	const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+	const [googleUser, setGoogleUser] = useState<GoogleToken | null>(null);
 
 	const { connected, publicKey, disconnect, connecting } = useWallet();
 	const { setVisible } = useWalletModal();
 
-	if (!isOpen) return null;
+	// Your Google Client ID from Google Cloud Console
+	const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+
+	// Wallet logo with spinning animation component
+	const WalletLogoWithSpinner = ({
+		size = "md",
+	}: {
+		size?: "sm" | "md" | "lg";
+	}) => {
+		const iconSize =
+			size === "sm" ? "h-4 w-4" : size === "lg" ? "h-6 w-6" : "h-5 w-5";
+		const ringSize =
+			size === "sm" ? "-inset-2" : size === "lg" ? "-inset-3" : "-inset-2";
+
+		return (
+			<div className="relative">
+				{/* Spinning ring */}
+				<div className={`absolute ${ringSize}`}>
+					<div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+					<div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
+				</div>
+
+				{/* Wallet icon */}
+				<Wallet className={`${iconSize} relative z-10`} />
+			</div>
+		);
+	};
+
+	// Reset states when modal closes
+	useEffect(() => {
+		if (!isOpen) {
+			setView("welcome");
+			setEmail("");
+			setEmailError(null);
+			setIsLoading(false);
+			setIsConnectingWallet(false);
+			setGoogleUser(null);
+		}
+	}, [isOpen]);
+
+	// Handle wallet connection state changes
+	useEffect(() => {
+		if (connected && publicKey && view === "wallet") {
+			// Auto sign in when wallet connects in wallet view
+			onSignIn();
+			onClose();
+		}
+	}, [connected, publicKey, view, onSignIn, onClose]);
+
+	// Handle wallet connecting state
+	useEffect(() => {
+		setIsConnectingWallet(connecting);
+	}, [connecting]);
+
+	// Handle Google Sign-In Success
+	const handleGoogleSuccess = async (
+		credentialResponse: CredentialResponse,
+	) => {
+		try {
+			setIsLoading(true);
+
+			// Decode the JWT token to get user info
+			if (credentialResponse.credential) {
+				const decodedToken: GoogleToken = jwtDecode(
+					credentialResponse.credential,
+				);
+				setGoogleUser(decodedToken);
+
+				// Call your backend API to verify the token and create user session
+				const response = await fetch("/api/auth/google", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						token: credentialResponse.credential,
+					}),
+				});
+
+				if (response.ok) {
+					const userData = await response.json();
+
+					// Call onSignIn with user data
+					onSignIn({
+						...userData,
+						name: decodedToken.name,
+						email: decodedToken.email,
+						image: decodedToken.picture,
+					});
+
+					onClose();
+				} else {
+					console.error("Google authentication failed");
+				}
+			}
+		} catch (error) {
+			console.error("Google sign in error:", error);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	// Handle Google Sign-In Error
+	const handleGoogleError = () => {
+		console.error("Google Sign-In failed");
+	};
+
+	// Handle Google Sign-Out
+	const handleGoogleSignOut = () => {
+		googleLogout();
+		setGoogleUser(null);
+	};
 
 	// Secure validation function
 	const validateEmail = (email: string): boolean => {
 		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 		return emailRegex.test(email);
-	};
-
-	const handleGoogleSignIn = async () => {
-		try {
-			setIsLoading(true);
-			await new Promise((resolve) => setTimeout(resolve, 1500));
-			setIsLoading(false);
-			onSignIn();
-			onClose();
-		} catch (error) {
-			console.error("Google sign in error:", error);
-			setIsLoading(false);
-		}
 	};
 
 	const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -72,13 +189,17 @@ export default function SignInModal({
 	};
 
 	const handleWalletSignIn = () => {
-		if (connected) {
+		if (connected && publicKey) {
 			onSignIn();
 			onClose();
+		} else {
+			// Show wallet modal if not connected
+			setVisible(true);
 		}
 	};
 
 	const truncateAddress = (address: string, length: number = 4) => {
+		if (!address) return "";
 		if (address.length <= length * 2 + 2) return address;
 		return `${address.slice(0, length)}...${address.slice(-length)}`;
 	};
@@ -126,11 +247,24 @@ export default function SignInModal({
 
 		return (
 			<button
-				onClick={() => setView("wallet")}
+				onClick={() => {
+					setView("wallet");
+					setVisible(true);
+				}}
 				className="flex w-full items-center justify-center gap-2 rounded-lg border border-input bg-transparent px-4 py-2.5 text-sm font-medium text-card-foreground transition-all hover:bg-accent hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
-				aria-label="Connect Solana wallet">
-				<Wallet className="h-4 w-4" />
-				Continue with Wallet
+				aria-label="Connect Solana wallet"
+				disabled={isConnectingWallet}>
+				{isConnectingWallet ? (
+					<>
+						<WalletLogoWithSpinner size="sm" />
+						Connecting...
+					</>
+				) : (
+					<>
+						<Wallet className="h-4 w-4" />
+						Continue with Wallet
+					</>
+				)}
 			</button>
 		);
 	};
@@ -191,7 +325,12 @@ export default function SignInModal({
 
 				{/* Cancel button */}
 				<button
-					onClick={() => setVisible(false)}
+					onClick={() => {
+						if (disconnect) {
+							disconnect();
+						}
+						setView("welcome");
+					}}
 					className="mt-4 w-full rounded-lg border border-input bg-transparent px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
 					aria-label="Cancel wallet connection">
 					Cancel
@@ -201,7 +340,7 @@ export default function SignInModal({
 	};
 
 	const renderWalletConnectView = () => {
-		if (connecting) {
+		if (isConnectingWallet) {
 			return renderWalletConnectingAnimation();
 		}
 
@@ -209,16 +348,50 @@ export default function SignInModal({
 			<>
 				<button
 					onClick={() => setVisible(true)}
-					disabled={connecting}
+					disabled={isConnectingWallet}
 					className="group relative flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-primary via-primary/90 to-primary/80 px-4 py-3.5 text-sm font-medium text-primary-foreground transition-all hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
 					aria-label="Connect Solana wallet">
-					<Wallet className="h-5 w-5" />
-					Continue with Wallet
+					{isConnectingWallet ? (
+						<>
+							<WalletLogoWithSpinner size="md" />
+							Awaiting Connection...
+						</>
+					) : (
+						<>
+							<Wallet className="h-5 w-5" />
+							Continue with Wallet
+						</>
+					)}
 				</button>
-			
+
+				{/* Help Text */}
+				<div className="rounded-lg bg-accent/30 p-4">
+					<p className="text-sm text-muted-foreground">
+						<strong className="font-medium text-card-foreground">
+							Need a wallet?
+						</strong>{" "}
+						Download{" "}
+						<a
+							href="https://phantom.app"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
+							Phantom
+						</a>{" "}
+						or{" "}
+						<a
+							href="https://solflare.com"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-primary/50 rounded">
+							Solflare
+						</a>{" "}
+						to get started with Solana.
+					</p>
+				</div>
 
 				{/* Already have wallet connected? */}
-				{connected && (
+				{connected && publicKey && (
 					<div className="space-y-3">
 						<div className="rounded-lg border border-green-200 bg-green-50 p-4">
 							<div className="flex items-center gap-3">
@@ -228,7 +401,7 @@ export default function SignInModal({
 										Wallet Connected
 									</p>
 									<p className="text-xs text-green-700">
-										{truncateAddress(publicKey?.toString() || "", 8)}
+										{truncateAddress(publicKey.toString(), 8)}
 									</p>
 								</div>
 							</div>
@@ -244,8 +417,72 @@ export default function SignInModal({
 		);
 	};
 
+	// Wrap your app with GoogleOAuthProvider at a higher level (likely in layout.tsx or _app.tsx)
+	// For this modal, we'll use it conditionally
+	const renderGoogleButton = () => {
+		if (!GOOGLE_CLIENT_ID) {
+			return (
+				<button
+					onClick={() =>
+						alert(
+							"Google OAuth not configured. Please add NEXT_PUBLIC_GOOGLE_CLIENT_ID to your environment variables.",
+						)
+					}
+					className="group relative flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-white to-white/90 px-4 py-3 text-sm font-medium text-gray-900 transition-all hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50 border border-gray-300"
+					aria-label="Continue with Google">
+					<svg
+						className="h-4 w-4"
+						viewBox="0 0 24 24"
+						aria-hidden="true">
+						<path
+							fill="currentColor"
+							d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+						/>
+						<path
+							fill="currentColor"
+							d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+						/>
+						<path
+							fill="currentColor"
+							d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+						/>
+						<path
+							fill="currentColor"
+							d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+						/>
+					</svg>
+					<span>Continue with Google</span>
+				</button>
+			);
+		}
+
+		return (
+			<GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+				<GoogleLogin
+					onSuccess={handleGoogleSuccess}
+					onError={handleGoogleError}
+					type="standard"
+					theme="outline"
+					size="large"
+					text="continue_with"
+					shape="rectangular"
+					logo_alignment="left"
+					width="100%"
+					ux_mode="popup"
+					useOneTap={false}
+				/>
+			</GoogleOAuthProvider>
+		);
+	};
+
+	if (!isOpen) return null;
+
 	return (
-		<div className="fixed inset-0 z-[100] overflow-y-auto">
+		<div
+			className="fixed inset-0 z-[100] overflow-y-auto"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="signin-modal-title">
 			{/* Backdrop */}
 			<div
 				className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
@@ -275,7 +512,9 @@ export default function SignInModal({
 							<div className="space-y-6">
 								{/* Header */}
 								<div className="text-center">
-									<h1 className="text-2xl font-bold tracking-tight text-card-foreground">
+									<h1
+										id="signin-modal-title"
+										className="text-2xl font-bold tracking-tight text-card-foreground">
 										Welcome to Polysight
 									</h1>
 									<p className="mt-2 text-sm text-muted-foreground">
@@ -286,42 +525,10 @@ export default function SignInModal({
 
 								{/* Action Buttons */}
 								<div className="space-y-4">
-									{/* Google Button - CHANGED TEXT */}
-									<button
-										onClick={handleGoogleSignIn}
-										disabled={isLoading}
-										className="group relative flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-white to-white/90 px-4 py-3 text-sm font-medium text-gray-900 transition-all hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-primary/50"
-										aria-label="Continue with Google">
-										{isLoading ? (
-											<Loader2 className="h-4 w-4 animate-spin" />
-										) : (
-											<>
-												<svg
-													className="h-4 w-4"
-													viewBox="0 0 24 24"
-													aria-hidden="true">
-													<path
-														fill="currentColor"
-														d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-													/>
-													<path
-														fill="currentColor"
-														d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-													/>
-													<path
-														fill="currentColor"
-														d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-													/>
-													<path
-														fill="currentColor"
-														d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-													/>
-												</svg>
-												{/* CHANGED TEXT */}
-												<span>Continue with Google</span>
-											</>
-										)}
-									</button>
+									{/* Google Button - REAL IMPLEMENTATION */}
+									<div className="google-button-container">
+										{renderGoogleButton()}
+									</div>
 
 									{/* OR Divider */}
 									<div className="relative">
@@ -335,7 +542,7 @@ export default function SignInModal({
 										</div>
 									</div>
 
-									{/* Email Input - CHANGED BUTTON TEXT */}
+									{/* Email Input */}
 									<form
 										onSubmit={handleEmailSubmit}
 										className="space-y-2">
@@ -366,7 +573,6 @@ export default function SignInModal({
 												{isLoading ? (
 													<Loader2 className="h-3 w-3 animate-spin" />
 												) : (
-													// CHANGED TEXT
 													<span>Continue</span>
 												)}
 											</button>
@@ -393,7 +599,7 @@ export default function SignInModal({
 										</div>
 									</div>
 
-									{/* Connect Wallet Button - CHANGED TEXT */}
+									{/* Connect Wallet Button */}
 									{renderWalletConnectButton()}
 								</div>
 
@@ -425,10 +631,16 @@ export default function SignInModal({
 								{/* Header */}
 								<div className="text-center">
 									<button
-										onClick={() => setView("welcome")}
+										onClick={() => {
+											setView("welcome");
+											if (isConnectingWallet && disconnect) {
+												disconnect();
+											}
+										}}
 										className="mb-4 flex items-center gap-2 text-sm text-muted-foreground hover:text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 rounded"
-										aria-label="Back to sign in options">
-										← Back
+										aria-label="Back to sign in options"
+										disabled={isConnectingWallet && !disconnect}>
+										← Back {isConnectingWallet ? "(Cancel)" : ""}
 									</button>
 									<h2 className="text-2xl font-bold tracking-tight text-card-foreground">
 										Connect Solana Wallet
@@ -442,7 +654,7 @@ export default function SignInModal({
 								<div className="space-y-3">{renderWalletConnectView()}</div>
 
 								{/* Switch to other methods */}
-								{!connecting && (
+								{!isConnectingWallet && (
 									<p className="text-center text-sm text-muted-foreground">
 										Prefer email or Google sign in?{" "}
 										<button

@@ -15,7 +15,6 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { PublicKey } from "@solana/web3.js";
 
 interface SolanaWalletConnectButtonProps {
 	variant?: "default" | "outline" | "ghost";
@@ -167,8 +166,7 @@ export function SolanaWalletConnectButton({
 	showDisconnect = true,
 	className,
 }: SolanaWalletConnectButtonProps) {
-	const { connected, publicKey, disconnect, connect, wallet, connecting } =
-		useWallet();
+	const { connected, publicKey, disconnect, connecting } = useWallet();
 	const { setVisible } = useWalletModal();
 	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -321,11 +319,23 @@ export function SolanaWalletConnectButton({
 				connecting && "opacity-50 cursor-not-allowed",
 				className,
 			)}
-			aria-label="Connect Solana wallet">
+			aria-label={
+				connecting ? "Awaiting wallet connection" : "Connect Solana wallet"
+			}>
 			{connecting ? (
 				<>
-					<div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-					Connecting...
+					{/* Wallet logo with spinning animation */}
+					<div className="relative">
+						{/* Spinning ring */}
+						<div className="absolute -inset-2">
+							<div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+							<div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
+						</div>
+
+						{/* Wallet icon */}
+						<Wallet className="h-4 w-4 relative z-10" />
+					</div>
+					Awaiting Connection...
 				</>
 			) : (
 				<>
