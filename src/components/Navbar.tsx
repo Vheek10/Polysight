@@ -106,20 +106,30 @@ export default function Navbar() {
 
 						{/* Right Section */}
 						<div className="flex items-center gap-2 sm:gap-3">
-							{/* Auth Buttons - Only show when not signed in on medium+ screens */}
+							{/* Mobile Join Button - Only show when not signed in on small screens */}
 							{!isSignedIn && (
-								<div className="hidden md:flex items-center gap-2 lg:gap-3">
-									<button
-										onClick={() => setSignInModalOpen(true)}
-										className="rounded-lg border border-input bg-transparent px-3 lg:px-4 py-2 text-sm font-medium text-card-foreground transition-all duration-500 hover:bg-accent hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
-										Login
-									</button>
+								<>
+									{/* Mobile Join Button - Visible on small screens only */}
 									<button
 										onClick={() => setSignUpModalOpen(true)}
-										className="rounded-lg bg-gradient-to-r from-primary via-primary/90 to-primary/80 px-3 lg:px-4 py-2 text-sm font-medium text-primary-foreground transition-all duration-500 hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 cursor-pointer">
-										Sign Up
+										className="md:hidden rounded-lg bg-gradient-to-r from-primary via-primary/90 to-primary/80 px-3 py-2 text-xs font-medium text-primary-foreground transition-all duration-500 hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 cursor-pointer whitespace-nowrap">
+										Join
 									</button>
-								</div>
+
+									{/* Desktop Auth Buttons */}
+									<div className="hidden md:flex items-center gap-2 lg:gap-3">
+										<button
+											onClick={() => setSignInModalOpen(true)}
+											className="rounded-lg border border-input bg-transparent px-3 lg:px-4 py-2 text-sm font-medium text-card-foreground transition-all duration-500 hover:bg-accent hover:shadow-md hover:-translate-y-0.5 cursor-pointer">
+											Login
+										</button>
+										<button
+											onClick={() => setSignUpModalOpen(true)}
+											className="rounded-lg bg-gradient-to-r from-primary via-primary/90 to-primary/80 px-3 lg:px-4 py-2 text-sm font-medium text-primary-foreground transition-all duration-500 hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 cursor-pointer">
+											Sign Up
+										</button>
+									</div>
+								</>
 							)}
 
 							{/* Portfolio Display for small screens - Show only when signed in */}

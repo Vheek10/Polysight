@@ -1,0 +1,103 @@
+/**
+ * styles/market-card.css
+ *
+ * @format
+ */
+
+.market-card {
+	border-radius: 12px;
+	overflow: hidden;
+	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	transition: transform 0.2s, box-shadow 0.2s;
+	background: white;
+}
+
+.market-card:hover {
+	transform: translateY(-4px);
+	box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+
+.market-image-container {
+	position: relative;
+	width: 100%;
+	height: 200px;
+	overflow: hidden;
+}
+
+.market-image {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	transition: transform 0.3s;
+}
+
+.market-card:hover .market-image {
+	transform: scale(1.05);
+}
+
+.image-skeleton {
+	width: 100%;
+	height: 100%;
+}
+
+.fallback-image {
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.fallback-content {
+	color: white;
+	font-weight: bold;
+	font-size: 1.2rem;
+}
+
+.market-content {
+	padding: 1rem;
+}
+
+.market-title {
+	font-size: 1rem;
+	font-weight: 600;
+	margin-bottom: 0.5rem;
+	line-height: 1.4;
+	color: #1a202c;
+}
+
+.market-meta {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 0.75rem;
+	font-size: 0.875rem;
+}
+
+.market-category {
+	background: #edf2f7;
+	padding: 0.25rem 0.75rem;
+	border-radius: 9999px;
+	font-weight: 500;
+	color: #4a5568;
+}
+
+.market-volume {
+	font-weight: 600;
+	color: #2d3748;
+}
+
+.market-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.375rem;
+}
+
+.market-tag {
+	background: #e2e8f0;
+	padding: 0.125rem 0.5rem;
+	border-radius: 4px;
+	font-size: 0.75rem;
+	color: #4a5568;
+}
