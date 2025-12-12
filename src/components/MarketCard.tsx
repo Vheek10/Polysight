@@ -120,9 +120,7 @@ const fetchMarketImage = async (market: Market): Promise<ImageInfo> => {
 		else if (probability < 40) predictionKeyword = "question uncertain";
 		else if (probability < 30) predictionKeyword = "x cancel";
 
-		const searchQuery = `${
-			market.category || "market"
-		} ${predictionKeyword}`.toLowerCase();
+		const searchQuery = `${market.category} ${predictionKeyword}`.toLowerCase();
 
 		// Fetch with timeout
 		const controller = new AbortController();
@@ -219,11 +217,9 @@ export default function MarketCard({ market }: MarketCardProps) {
 	const yesPercentage = Math.round((yesOutcome?.probability || 0.5) * 100);
 	const noPercentage = Math.round((noOutcome?.probability || 0.5) * 100);
 
-	// Calculate or use price change - FIXED: Use market.price or fallback to random
-	const priceChange =
-		(market as any).priceChange24h ||
-		(market as any).priceChange ||
-		Math.random() * 20 - 10; // Random between -10% and +10% for demo
+	// Calculate price change based on probability movement or use a fallback
+	// Since priceChange24h doesn't exist in Market type, we'll calculate a mock change
+	const priceChange = Math.random() * 20 - 10; // Random between -10% and +10% for demo
 	const isPositive = priceChange > 0;
 	const changeValue = `${isPositive ? "+" : ""}${priceChange.toFixed(1)}%`;
 
@@ -333,7 +329,8 @@ export default function MarketCard({ market }: MarketCardProps) {
 
 	const handleCardClick = () => {
 		if (!isTradeMode) {
-			router.push(`/market/${market.slug || market.id}`);
+			// Use market.id since slug doesn't exist on Market type
+			router.push(`/market/${market.id}`);
 		}
 	};
 
@@ -389,7 +386,11 @@ export default function MarketCard({ market }: MarketCardProps) {
 								{market.category || "Uncategorized"}
 							</span>
 							<span className="text-xs text-muted-foreground truncate">
-								{market.source || "Market"}
+								{market.creator
+									? `${market.creator.slice(0, 6)}...${market.creator.slice(
+											-4,
+									  )}`
+									: "Anonymous"}
 							</span>
 						</div>
 					</div>
@@ -440,7 +441,7 @@ export default function MarketCard({ market }: MarketCardProps) {
 							Volume
 						</p>
 						<p className="font-medium text-card-foreground transition-colors duration-200">
-							{formatVolume((market as any).volume24h || market.volume || 0)}
+							{formatVolume(market.volume || 0)}
 						</p>
 					</div>
 					<div>
@@ -448,7 +449,7 @@ export default function MarketCard({ market }: MarketCardProps) {
 							Liquidity
 						</p>
 						<p className="font-medium text-card-foreground transition-colors duration-200">
-							{formatVolume((market as any).liquidity || 0)}
+							{formatVolume(market.liquidity || 0)}
 						</p>
 					</div>
 				</div>
