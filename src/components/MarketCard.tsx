@@ -157,6 +157,10 @@ const fetchMarketImage = async (market: Market): Promise<ImageInfo> => {
 	} catch (error) {
 		// Fall back to DiceBear avatars (no API key required)
 		try {
+			// Recalculate probability here since it's out of scope in the catch block
+			const yesOutcome = market.outcomes?.find((o) => o.name === "YES");
+			const probability = (yesOutcome?.probability || 0.5) * 100;
+
 			const seed = market.id || market.question;
 			const style =
 				probability > 60
