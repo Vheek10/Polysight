@@ -23,20 +23,95 @@
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lerna-debug.log*
 
 # env files (can opt-in for committing if needed)
 .env*
 .env.local
 .env.development.local
+.env.test.local
+.env.production.local
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Prisma
+/prisma/*.db
+/prisma/*.db-journal
+/prisma/migrations/*/migration_engine
+/prisma/migrations/*/query_engine*
+/prisma/migrations/*/schema_engine
+
+# Database files (SQLite)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store?
+ehthumbs.db
+Icon?
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Cache
+.cache/
+.next/cache/
+
+# Build outputs
+dist/
+.next/standalone/
+.next/server/chunks/
+.next/static/chunks/
+.next/prerender-manifest.json
+.next/build-manifest.json
+.next/export-marker.json
+
+# Package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment variables with secrets
+*.env
+!.env.example
+
+# Platform-specific
+*.pid
+*.seed
+*.pid.lock
+
+# Development files
+dump.rdb
+*.dump
